@@ -14,15 +14,17 @@ function Header() {
       {/* White section — logo + brand name, like the Paid Media Dashboard sidebar */}
       <Link
         href="/"
-        className="flex items-center gap-3.5 px-6 bg-white shrink-0 border-r border-[#DDE1EA] hover:bg-slate-50 transition-colors duration-150"
-        style={{ minWidth: 200 }}
+        className="flex items-center px-5 bg-white shrink-0 border-r border-[#DDE1EA] hover:bg-slate-50 transition-colors duration-150"
+        style={{ minWidth: 160 }}
       >
-        {/* Use the real PNG logo from /public/logo.png */}
-        <img
-          src="/logo.png"
-          alt="Pernod Ricard"
-          style={{ height: 44, width: 'auto', display: 'block' }}
-        />
+        {/* Crop the logo to show only icon + "Pernod Ricard", hiding the tagline */}
+        <div style={{ width: 108, height: 52, overflow: 'hidden', flexShrink: 0 }}>
+          <img
+            src="/logo.png"
+            alt="Pernod Ricard"
+            style={{ width: '100%', height: 'auto', display: 'block' }}
+          />
+        </div>
       </Link>
 
       {/* Dark navy section — product title + nav */}
