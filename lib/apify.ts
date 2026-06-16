@@ -129,6 +129,7 @@ export interface NormalisedTrend {
   emotional_hook: string
   engagement_volume: number
   spike_pct: number
+  source_url: string   // direct link to the specific video/post that triggered this trend
   raw_data: Record<string, unknown>
 }
 
@@ -141,6 +142,13 @@ export function normaliseTikTokItem(item: Record<string, unknown>): NormalisedTr
     const plays = (item.stats as Record<string, number>)?.playCount || 0
     const engagementVolume = Math.max(views, plays)
 
+    // Extract the specific video URL — webVideoUrl is the direct TikTok post link
+    const authorName = (item.authorMeta as Record<string, string>)?.name || 'unknown'
+    const videoId = item.id as string
+    const sourceUrl =
+      (item.webVideoUrl as string) ||
+      (videoId ? `https://www.tiktok.com/@${authorName}/video/${videoId}` : '')
+
     return {
       platform: 'tiktok',
       trend_name: hashtag,
@@ -148,6 +156,7 @@ export function normaliseTikTokItem(item: Record<string, unknown>): NormalisedTr
       emotional_hook: (item.desc as string)?.slice(0, 120) || 'Trending on TikTok',
       engagement_volume: engagementVolume,
       spike_pct: typeof item.growthRate === 'number' ? (item.growthRate as number) * 100 : 0,
+      source_url: sourceUrl,
       raw_data: item,
     }
   } catch {
@@ -168,13 +177,20 @@ export function normaliseInstagramItem(item: Record<string, unknown>): Normalise
     const comments = (item.commentsCount as number) || 0
     const views = (item.videoViewCount as number) || 0
 
+    // Extract the specific post URL
+    const shortCode = item.shortCode as string
+    const sourceUrl =
+      (item.url as string) ||
+      (shortCode ? `https://www.instagram.com/p/${shortCode}/` : '')
+
     return {
       platform: 'instagram',
       trend_name: hashtag,
       trend_type: item.isVideo ? 'format' : 'hashtag',
       emotional_hook: (item.caption as string)?.slice(0, 120) || 'Trending on Instagram',
       engagement_volume: likes + comments + views,
-      spike_pct: 0, // Instagram API doesn't expose growth rates directly
+      spike_pct: 0,
+      source_url: sourceUrl,
       raw_data: item,
     }
   } catch {

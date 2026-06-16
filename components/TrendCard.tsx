@@ -37,64 +37,82 @@ function TopBrandChip({ brand }: { brand: string }) {
   )
 }
 
-// Extracts TikTok video ID from a URL like https://www.tiktok.com/@user/video/7391234567890
 function getTikTokVideoId(url: string): string | null {
   const match = url.match(/\/video\/(\d+)/)
   return match ? match[1] : null
 }
 
-function VideoEmbed({ url, platform }: { url: string; platform: string }) {
-  const [expanded, setExpanded] = useState(false)
+function SourceVideo({ url, platform }: { url: string; platform: string }) {
+  const [showEmbed, setShowEmbed] = useState(false)
   const isIG = platform === 'instagram'
   const isTikTok = platform === 'tiktok'
   const videoId = isTikTok ? getTikTokVideoId(url) : null
+  const bgColor = isIG ? '#E1306C' : '#010101'
 
   return (
-    <div className="border-t border-pr-bg mt-3 pt-3">
-      {/* Always show "View" link */}
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-widest text-pr-muted font-medium">
-          Source
-        </span>
+    <div className="rounded-xl overflow-hidden border border-gray-100" style={{ background: '#F8F9FB' }}>
+      {/* Header bar — always visible */}
+      <div className="flex items-center justify-between px-3 py-2.5">
         <div className="flex items-center gap-2">
-          {/* Embed button — only for TikTok with a video ID */}
+          <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: bgColor }}>
+            {isIG ? (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="white" strokeWidth="2" fill="none"/>
+                <circle cx="12" cy="12" r="4" stroke="white" strokeWidth="2" fill="none"/>
+                <circle cx="17.5" cy="6.5" r="1.5" fill="white"/>
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.32 6.32 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.5a8.16 8.16 0 0 0 4.77 1.52V7.57a4.85 4.85 0 0 1-1-.88z"/>
+              </svg>
+            )}
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-pr-muted font-medium leading-none mb-0.5">
+              Trend spotted in
+            </p>
+            <p className="text-[11px] font-semibold text-pr-text truncate max-w-[160px]">
+              {url.replace('https://www.', '').replace('https://', '').split('/').slice(0, 2).join('/')}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {/* Embed toggle — only for TikTok with real video ID */}
           {isTikTok && videoId && (
             <button
-              onClick={() => setExpanded(!expanded)}
-              className="text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors"
+              onClick={() => setShowEmbed(!showEmbed)}
+              className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-all"
               style={{
-                background: expanded ? '#010101' : 'transparent',
-                color: expanded ? '#fff' : '#010101',
-                border: '1px solid #010101',
+                background: showEmbed ? '#010101' : 'rgba(1,1,1,0.06)',
+                color: showEmbed ? '#fff' : '#010101',
               }}
             >
-              {expanded ? 'Hide' : 'Watch'}
+              {showEmbed ? 'Hide' : 'Watch'}
             </button>
           )}
-          {/* Open link */}
           <a
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md text-white transition-opacity hover:opacity-90"
-            style={{ background: isIG ? '#E1306C' : '#010101' }}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg text-white"
+            style={{ background: bgColor }}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
             </svg>
-            {isIG ? 'Open on Instagram' : 'Open on TikTok'}
+            Open
           </a>
         </div>
       </div>
 
-      {/* TikTok embed iframe — only expands for real video URLs */}
-      {expanded && videoId && (
-        <div className="mt-3 rounded-lg overflow-hidden" style={{ height: 480 }}>
+      {/* TikTok inline embed */}
+      {showEmbed && videoId && (
+        <div style={{ height: 500, position: 'relative', background: '#000' }}>
           <iframe
             src={`https://www.tiktok.com/embed/v2/${videoId}`}
-            style={{ width: '100%', height: '100%', border: 'none' }}
+            style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
             allow="encrypted-media"
             allowFullScreen
             title="TikTok video"
@@ -102,14 +120,14 @@ function VideoEmbed({ url, platform }: { url: string; platform: string }) {
         </div>
       )}
 
-      {/* Instagram — no embed (blocked by Meta), show a note */}
-      {isIG && expanded && (
-        <p className="mt-2 text-[11px] text-pr-muted">
+      {/* Instagram note */}
+      {isIG && showEmbed && (
+        <p className="px-3 pb-3 text-[11px] text-pr-muted">
           Instagram blocks third-party embeds.{' '}
-          <a href={url} target="_blank" rel="noopener noreferrer" className="underline">
-            Open in new tab
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-pr-navy font-medium underline">
+            Open post
           </a>{' '}
-          to view.
+          to watch.
         </p>
       )}
     </div>
@@ -119,56 +137,52 @@ function VideoEmbed({ url, platform }: { url: string; platform: string }) {
 export default function TrendCard({ trend }: TrendCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-card hover:shadow-card-hover transition-shadow duration-200 overflow-hidden border-l-[3px] border-pr-gold flex flex-col">
-      <div className="p-5 flex flex-col flex-1">
+      <div className="p-5 flex flex-col gap-4">
 
-        {/* Platform + spike */}
-        <div className="flex items-center justify-between mb-3">
+        {/* Row 1: Platform badge + spike */}
+        <div className="flex items-center justify-between">
           <PlatformBadge platform={trend.platform} />
-          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-extrabold tracking-tight bg-pr-gold text-pr-navy">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-extrabold tracking-tight bg-pr-gold text-pr-navy tabular">
             +{trend.spike_pct}%
           </span>
         </div>
 
-        {/* Trend name */}
-        <h3 className="text-lg font-bold text-pr-text leading-snug mb-1.5" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
-          {trend.trend_name}
-        </h3>
-
-        {/* Emotional hook */}
-        <p className="text-sm text-pr-muted italic leading-relaxed mb-4">
-          {trend.emotional_hook}
-        </p>
-
-        {/* Brand score bars */}
-        <div className="bg-pr-bg rounded-lg p-3 mb-4">
-          <p className="text-[10px] uppercase tracking-widest text-pr-muted mb-2 font-medium">
-            Brand Relevance
+        {/* Row 2: Trend name */}
+        <div>
+          <h3 className="text-lg font-bold text-pr-text leading-snug" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
+            {trend.trend_name}
+          </h3>
+          <p className="text-sm text-pr-muted italic leading-relaxed mt-1">
+            {trend.emotional_hook}
           </p>
+        </div>
+
+        {/* Row 3: Source video — prominent, right after the headline */}
+        {trend.source_url && (
+          <SourceVideo url={trend.source_url} platform={trend.platform} />
+        )}
+
+        {/* Row 4: Brand scores */}
+        <div className="bg-pr-bg rounded-lg p-3">
+          <p className="text-[10px] uppercase tracking-widest text-pr-muted mb-2 font-medium">Brand Relevance</p>
           <BrandScoreBars trend={trend} />
         </div>
 
-        {/* Top brand */}
-        <div className="flex items-center gap-2 mb-3">
+        {/* Row 5: Best fit + opportunity */}
+        <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-widest text-pr-muted">Best fit</span>
           <TopBrandChip brand={trend.top_brand} />
         </div>
 
-        {/* Opportunity note */}
-        <p className="text-sm text-pr-text italic leading-relaxed mb-4" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
+        <p className="text-sm text-pr-text italic leading-relaxed" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
           &ldquo;{trend.opportunity_note}&rdquo;
         </p>
 
-        {/* Content angle */}
-        <div className="mb-3">
-          <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-pr-navy text-pr-gold text-[11px] font-semibold">
-            {trend.content_angle}
-          </span>
-        </div>
+        {/* Row 6: Content angle */}
+        <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-pr-navy text-pr-gold text-[11px] font-semibold w-fit">
+          {trend.content_angle}
+        </span>
 
-        {/* Video / source embed */}
-        {trend.source_url && (
-          <VideoEmbed url={trend.source_url} platform={trend.platform} />
-        )}
       </div>
     </div>
   )
