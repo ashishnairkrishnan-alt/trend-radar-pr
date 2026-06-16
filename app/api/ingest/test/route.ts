@@ -96,13 +96,13 @@ const MOCK_RAW_TRENDS: Omit<RawTrend, 'id' | 'created_at' | 'processed'>[] = [
   },
   {
     platform: 'tiktok',
-    trend_name: '#DohaVibes',
+    trend_name: '#AbuDhabiNights',
     trend_type: 'hashtag',
-    emotional_hook: 'Qatar hospitality meets modern nightlife — upscale social moments',
+    emotional_hook: 'Abu Dhabi luxury rooftop culture — sophisticated, aspirational, GCC elite',
     engagement_volume: 3_200_000,
     spike_pct: 195,
-    // Spotted in this Doha lifestyle video
-    source_url: 'https://www.tiktok.com/@qatarlifestyle/video/7301234567891234567',
+    // Spotted in this Abu Dhabi nightlife highlight
+    source_url: 'https://www.tiktok.com/@uaelifestyle_/video/7301234567891234567',
     raw_data: { source: 'mock', cluster: 'mena' },
   },
   {
