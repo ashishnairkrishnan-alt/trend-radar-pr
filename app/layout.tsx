@@ -10,15 +10,15 @@ export const metadata: Metadata = {
 
 function Header() {
   return (
-    <header className="sticky top-0 z-50 flex h-[64px] shadow-[0_1px_8px_rgba(0,0,0,0.18)]">
+    <header className="sticky top-0 z-50 flex h-[72px] shadow-[0_1px_8px_rgba(0,0,0,0.18)]">
 
       {/* ── White brand section — matches Paid Media Dashboard sidebar top ── */}
       <Link
         href="/"
-        className="flex items-center gap-3 px-5 bg-white border-r border-[#E8EAF0] min-w-[172px] shrink-0 hover:bg-[#FAFAFA] transition-colors"
+        className="flex items-center gap-3.5 px-6 bg-white border-r border-[#E2E6EE] min-w-[192px] shrink-0 hover:bg-[#FAFAFA] transition-colors"
       >
-        <PernodRicardLogo size={30} />
-        <span className="text-[13.5px] font-dm-sans font-semibold text-[#0D1B3E] tracking-tight leading-none">
+        <PernodRicardLogo size={44} />
+        <span className="text-[14px] font-dm-sans font-semibold text-[#0D1B3E] tracking-tight leading-none">
           Pernod Ricard
         </span>
       </Link>
@@ -34,7 +34,7 @@ function Header() {
           >
             Pernod Ricard
           </span>
-          <span className="text-[20px] font-playfair font-semibold text-white leading-none tracking-tight">
+          <span className="text-[24px] font-playfair font-semibold text-white leading-none tracking-tight">
             Trend Radar
           </span>
         </div>
