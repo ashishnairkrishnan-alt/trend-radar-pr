@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Link from 'next/link'
-import PernodRicardLogo from '@/components/PernodRicardLogo'
 
 export const metadata: Metadata = {
   title: 'Trend Radar — Pernod Ricard ME',
@@ -10,36 +9,47 @@ export const metadata: Metadata = {
 
 function Header() {
   return (
-    <header className="bg-pr-navy sticky top-0 z-50" style={{ boxShadow: '0 1px 0 rgba(255,255,255,0.06)' }}>
-      <div className="flex items-center justify-between px-6 h-16">
+    <header className="bg-[#0D1B3E] sticky top-0 z-50">
 
-        {/* Left — Logo + brand name (matches Paid Media Dashboard sidebar header) */}
-        <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-          <PernodRicardLogo size={34} />
-          <div className="hidden sm:block border-l border-white/15 pl-3">
-            <p
-              className="text-[9px] font-dm-sans font-500 text-white/50 uppercase tracking-[0.18em] leading-none mb-0.5"
-              style={{ letterSpacing: '0.18em' }}
+      {/* Main nav bar */}
+      <div className="max-w-[1440px] mx-auto px-6 h-[68px] flex items-center justify-between">
+
+        {/* LEFT — Logo + product title */}
+        <Link href="/" className="flex items-center gap-4 group">
+          {/* Logo mark in white pill — makes PR logo visible on dark bg */}
+          <div className="bg-white rounded-xl px-3 py-1.5 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+            <img
+              src="/pernod-ricard-logo.png"
+              alt="Pernod Ricard"
+              className="h-8 w-auto"
+              style={{ display: 'block' }}
+            />
+          </div>
+
+          {/* Divider */}
+          <div className="h-8 w-px bg-white/15 hidden sm:block" />
+
+          {/* Product title */}
+          <div className="hidden sm:flex flex-col justify-center">
+            <span
+              className="text-[9px] text-white/45 uppercase font-dm-sans font-medium"
+              style={{ letterSpacing: '0.2em' }}
             >
-              Pernod Ricard
-            </p>
-            <h1
-              className="text-[17px] font-playfair font-semibold text-white leading-none tracking-tight"
-            >
+              Middle East
+            </span>
+            <span className="text-[20px] font-playfair font-semibold text-white leading-tight tracking-tight">
               Trend Radar
-            </h1>
+            </span>
           </div>
         </Link>
 
-        {/* Centre — visible on mobile only (logo hidden on mobile) */}
-        <Link href="/" className="sm:hidden">
-          <h1 className="text-[16px] font-playfair font-semibold text-white tracking-tight">
-            Trend Radar
-          </h1>
-        </Link>
+        {/* Mobile title */}
+        <span className="sm:hidden text-[18px] font-playfair font-semibold text-white">
+          Trend Radar
+        </span>
 
-        {/* Right — Navigation */}
-        <nav className="flex items-center gap-1">
+        {/* RIGHT — Navigation links */}
+        <nav className="flex items-center gap-0.5">
           <NavLink href="/">Dashboard</NavLink>
           <NavLink href="/history">History</NavLink>
           <NavLink href="/settings">Settings</NavLink>
@@ -47,8 +57,9 @@ function Header() {
 
       </div>
 
-      {/* Thin gold underline accent — matching the gold KPI accents in the dashboard */}
-      <div className="h-px bg-gradient-to-r from-transparent via-pr-gold/40 to-transparent" />
+      {/* Gold accent line */}
+      <div className="h-[2px] bg-gradient-to-r from-transparent via-[#C9A84C] to-transparent opacity-40" />
+
     </header>
   )
 }
@@ -57,8 +68,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className="px-3 py-1.5 rounded text-[13px] font-dm-sans font-medium text-white/60 hover:text-white hover:bg-white/8 transition-colors"
-      style={{ letterSpacing: '0.01em' }}
+      className="px-4 py-2 rounded-lg text-[13px] font-dm-sans font-medium text-white/55 hover:text-white hover:bg-white/[0.07] transition-all duration-150"
     >
       {children}
     </Link>
@@ -68,7 +78,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-pr-bg font-dm-sans">
+      <body className="min-h-screen bg-pr-bg font-dm-sans antialiased">
         <Header />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {children}
