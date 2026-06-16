@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Link from 'next/link'
-import PernodRicardLogo from '@/components/PernodRicardLogo'
 
 export const metadata: Metadata = {
   title: 'Trend Radar — Pernod Ricard ME',
@@ -12,43 +11,39 @@ function Header() {
   return (
     <header className="sticky top-0 z-50 flex h-[70px]" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.22)' }}>
 
-      {/* White brand block — logo + "Pernod Ricard" on white, like the sidebar */}
+      {/* White section — logo + brand name, like the Paid Media Dashboard sidebar */}
       <Link
         href="/"
         className="flex items-center gap-3.5 px-6 bg-white shrink-0 border-r border-[#DDE1EA] hover:bg-slate-50 transition-colors duration-150"
         style={{ minWidth: 200 }}
       >
-        <PernodRicardLogo size={46} />
-        <span style={{
-          fontFamily: '"DM Sans", system-ui, sans-serif',
-          fontWeight: 600,
-          fontSize: 15,
-          color: '#0D1B3E',
-          letterSpacing: '-0.01em',
-          lineHeight: 1,
-        }}>
-          Pernod Ricard
-        </span>
+        {/* Use the real PNG logo from /public/logo.png */}
+        <img
+          src="/logo.png"
+          alt="Pernod Ricard"
+          style={{ height: 44, width: 'auto', display: 'block' }}
+        />
       </Link>
 
-      {/* Dark navy content header — matching Paid Media Dashboard exactly */}
+      {/* Dark navy section — product title + nav */}
       <div
         className="flex flex-1 items-center justify-between px-7"
         style={{ background: '#0D1B3E' }}
       >
-        {/* Title hierarchy */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span style={{
+        {/* Title — Playfair Display, matching "Paid Media Dashboard" style */}
+        <div>
+          <p style={{
             fontFamily: '"DM Sans", system-ui, sans-serif',
             fontWeight: 500,
             fontSize: 10,
-            color: 'rgba(255,255,255,0.38)',
+            color: 'rgba(255,255,255,0.4)',
             textTransform: 'uppercase',
             letterSpacing: '0.2em',
+            marginBottom: 3,
           }}>
-            Pernod Ricard
-          </span>
-          <span style={{
+            Middle East
+          </p>
+          <p style={{
             fontFamily: '"Playfair Display", Georgia, serif',
             fontWeight: 600,
             fontSize: 26,
@@ -57,16 +52,16 @@ function Header() {
             lineHeight: 1,
           }}>
             Trend Radar
-          </span>
+          </p>
         </div>
 
-        {/* Nav */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        {/* Nav links */}
+        <nav style={{ display: 'flex', gap: 4 }}>
           {[
-            { href: '/', label: 'Dashboard' },
-            { href: '/history', label: 'History' },
-            { href: '/settings', label: 'Settings' },
-          ].map(({ href, label }) => (
+            { label: 'Dashboard', href: '/' },
+            { label: 'History', href: '/history' },
+            { label: 'Settings', href: '/settings' },
+          ].map(({ label, href }) => (
             <Link
               key={href}
               href={href}
@@ -77,16 +72,7 @@ function Header() {
                 color: 'rgba(255,255,255,0.6)',
                 padding: '8px 16px',
                 borderRadius: 8,
-                transition: 'all 0.15s',
                 textDecoration: 'none',
-              }}
-              onMouseEnter={e => {
-                ;(e.target as HTMLElement).style.color = '#fff'
-                ;(e.target as HTMLElement).style.background = 'rgba(255,255,255,0.08)'
-              }}
-              onMouseLeave={e => {
-                ;(e.target as HTMLElement).style.color = 'rgba(255,255,255,0.6)'
-                ;(e.target as HTMLElement).style.background = 'transparent'
               }}
             >
               {label}
@@ -103,7 +89,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        {/* Fonts loaded via link tags — more reliable than CSS @import in Next.js */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
