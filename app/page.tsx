@@ -139,13 +139,13 @@ export default function DashboardPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-pr-muted font-medium mb-1">
+          <div className="text-[10px] font-dm-sans font-medium uppercase tracking-[0.18em] text-pr-muted mb-1">
             Social Intelligence
           </div>
-          <h1 className="text-2xl font-serif font-bold text-pr-text">
+          <h1 className="text-2xl font-playfair font-semibold text-pr-text">
             Trend Dashboard
           </h1>
-          <p className="text-sm text-pr-muted mt-0.5">
+          <p className="text-sm font-dm-sans text-pr-muted mt-0.5">
             Week {weekNumber} · {APP_CONFIG.fiscalYear} · {now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
