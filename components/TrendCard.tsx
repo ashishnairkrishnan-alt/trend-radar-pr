@@ -42,6 +42,26 @@ function getTikTokVideoId(url: string): string | null {
   return match ? match[1] : null
 }
 
+function getSourceLabel(url: string): string {
+  try {
+    const u = new URL(url)
+    const parts = u.pathname.split('/').filter(Boolean)
+    if (u.hostname.includes('tiktok')) {
+      // @username/video/ID → show "@username"
+      const username = parts.find(p => p.startsWith('@'))
+      return username || 'TikTok video'
+    }
+    if (u.hostname.includes('instagram')) {
+      if (parts[0] === 'reel' && parts[1]) return `Reel · ${parts[1]}`
+      if (parts[0] === 'p' && parts[1]) return `Post · ${parts[1]}`
+      return 'Instagram post'
+    }
+    return url
+  } catch {
+    return url
+  }
+}
+
 function SourceVideo({ url, platform }: { url: string; platform: string }) {
   const [showEmbed, setShowEmbed] = useState(false)
   const isIG = platform === 'instagram'
@@ -72,7 +92,7 @@ function SourceVideo({ url, platform }: { url: string; platform: string }) {
               Trend spotted in
             </p>
             <p className="text-[11px] font-semibold text-pr-text truncate max-w-[160px]">
-              {url.replace('https://www.', '').replace('https://', '').split('/').slice(0, 2).join('/')}
+              {getSourceLabel(url)}
             </p>
           </div>
         </div>
