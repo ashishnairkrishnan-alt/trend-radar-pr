@@ -112,7 +112,7 @@ export default function HistoryPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="text-sm font-bold text-pr-text font-serif">
-                        Week {weekNum} Â· {sentDate.getFullYear()}
+                        Week {weekNum}{' · '}{sentDate.getFullYear()}
                       </div>
                       <div className="text-xs text-pr-muted mt-0.5">
                         {sentDate.toLocaleDateString('en-GB', {
@@ -127,7 +127,7 @@ export default function HistoryPage() {
                   </div>
                   <div className="flex items-center gap-3 mt-2 text-xs text-pr-muted">
                     <span>{log.trend_count} trends</span>
-                    <span>Â·</span>
+                    <span>{'·'}</span>
                     <span>{log.recipient_count} recipients</span>
                   </div>
                 </button>

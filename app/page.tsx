@@ -146,7 +146,7 @@ export default function DashboardPage() {
             Trend Dashboard
           </h1>
           <p className="text-sm font-dm-sans text-pr-muted mt-0.5">
-            Week {weekNumber} · {APP_CONFIG.fiscalYear} · {now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+            Week {weekNumber}{' · '}{APP_CONFIG.fiscalYear}{' · '}{now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
         <div className="flex items-center gap-3">
