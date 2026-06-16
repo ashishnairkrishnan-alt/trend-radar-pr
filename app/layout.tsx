@@ -10,50 +10,43 @@ export const metadata: Metadata = {
 
 function Header() {
   return (
-    <header className="bg-[#0D1B3E] sticky top-0 z-50">
-      <div className="max-w-[1440px] mx-auto px-6 h-[68px] flex items-center justify-between">
+    <header className="sticky top-0 z-50 flex h-[64px] shadow-[0_1px_8px_rgba(0,0,0,0.18)]">
 
-        {/* LEFT — Logo + product name */}
-        <Link href="/" className="flex items-center gap-4 group">
-
-          {/* SVG logo on white rounded background so it reads clearly on dark navy */}
-          <div className="bg-white rounded-2xl px-3 py-2 shadow-sm group-hover:shadow-md transition-shadow duration-200">
-            <PernodRicardLogo size={38} />
-          </div>
-
-          {/* Vertical divider */}
-          <div className="hidden sm:block h-9 w-px bg-white/15" />
-
-          {/* Title block */}
-          <div className="hidden sm:flex flex-col leading-none gap-[3px]">
-            <span
-              className="text-[9px] font-dm-sans font-medium uppercase text-white/40"
-              style={{ letterSpacing: '0.22em' }}
-            >
-              Pernod Ricard
-            </span>
-            <span className="text-[19px] font-playfair font-semibold text-white tracking-tight">
-              Trend Radar
-            </span>
-          </div>
-        </Link>
-
-        {/* Mobile: title only */}
-        <span className="sm:hidden text-[17px] font-playfair font-semibold text-white">
-          Trend Radar
+      {/* ── White brand section — matches Paid Media Dashboard sidebar top ── */}
+      <Link
+        href="/"
+        className="flex items-center gap-3 px-5 bg-white border-r border-[#E8EAF0] min-w-[172px] shrink-0 hover:bg-[#FAFAFA] transition-colors"
+      >
+        <PernodRicardLogo size={30} />
+        <span className="text-[13.5px] font-dm-sans font-semibold text-[#0D1B3E] tracking-tight leading-none">
+          Pernod Ricard
         </span>
+      </Link>
 
-        {/* RIGHT — Nav */}
-        <nav className="flex items-center gap-0.5">
+      {/* ── Dark navy content area — matches the Paid Media Dashboard header ── */}
+      <div className="flex flex-1 items-center justify-between bg-[#0D1B3E] px-6">
+
+        {/* Title hierarchy */}
+        <div className="flex flex-col justify-center gap-[2px]">
+          <span
+            className="text-[9px] font-dm-sans font-medium text-white/35 uppercase"
+            style={{ letterSpacing: '0.22em' }}
+          >
+            Pernod Ricard
+          </span>
+          <span className="text-[20px] font-playfair font-semibold text-white leading-none tracking-tight">
+            Trend Radar
+          </span>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex items-center gap-1">
           <NavLink href="/">Dashboard</NavLink>
           <NavLink href="/history">History</NavLink>
           <NavLink href="/settings">Settings</NavLink>
         </nav>
 
       </div>
-
-      {/* Thin gold underline */}
-      <div className="h-px bg-gradient-to-r from-transparent via-[#C9A84C]/50 to-transparent" />
     </header>
   )
 }
@@ -62,7 +55,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className="px-4 py-2 rounded-lg text-[13px] font-dm-sans font-medium text-white/55 hover:text-white hover:bg-white/[0.08] transition-all duration-150"
+      className="px-4 py-2 rounded-md text-[13px] font-dm-sans font-medium text-white/55 hover:text-white hover:bg-white/[0.08] transition-all duration-150"
     >
       {children}
     </Link>
