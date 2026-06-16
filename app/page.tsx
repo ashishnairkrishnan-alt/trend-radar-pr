@@ -20,7 +20,7 @@ function EmptyState({ filtered }: { filtered: boolean }) {
   return (
     <div className="col-span-2 py-24 text-center">
       <div className="w-16 h-16 rounded-full bg-pr-cream border border-pr-gold/20 flex items-center justify-center mx-auto mb-4">
-        <span className="text-2xl">ðŸ“¡</span>
+        <span className=”text-2xl”>📡</span>
       </div>
       <h3 className="text-lg font-serif font-bold text-pr-text mb-2">
         {filtered ? 'No trends match your filters' : 'No trends this week yet'}
@@ -76,9 +76,9 @@ function SendDigestButton() {
         </svg>
       )}
       {status === 'idle' && 'Send Digest'}
-      {status === 'loading' && 'Sendingâ€¦'}
-      {status === 'done' && 'âœ“ Sent!'}
-      {status === 'error' && 'âœ— Failed'}
+      {status === 'loading' && 'Sending...'}
+      {status === 'done' && '✓ Sent!'}
+      {status === 'error' && '✗ Failed'}
     </button>
   )
 }
@@ -146,7 +146,7 @@ export default function DashboardPage() {
             Trend Dashboard
           </h1>
           <p className="text-sm font-dm-sans text-pr-muted mt-0.5">
-            Week {weekNumber} Â· {APP_CONFIG.fiscalYear} Â· {now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+            Week {weekNumber} · {APP_CONFIG.fiscalYear} · {now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
         <div className="flex items-center gap-3">

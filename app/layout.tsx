@@ -17,12 +17,12 @@ function Header() {
         className="flex items-center px-5 bg-white shrink-0 border-r border-[#DDE1EA] hover:bg-slate-50 transition-colors duration-150"
         style={{ minWidth: 160 }}
       >
-        {/* Crop the logo to show only icon + "Pernod Ricard", hiding the tagline */}
-        <div style={{ width: 108, height: 52, overflow: 'hidden', flexShrink: 0 }}>
+        {/* Show only the icon + "Pernod Ricard" — crop out the tagline */}
+        <div style={{ width: 100, height: 40, overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
           <img
             src="/logo.png"
             alt="Pernod Ricard"
-            style={{ width: '100%', height: 'auto', display: 'block' }}
+            style={{ position: 'absolute', top: 0, left: 0, width: 100, height: 'auto', display: 'block' }}
           />
         </div>
       </Link>
