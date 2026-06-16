@@ -7,8 +7,15 @@ import { APP_CONFIG } from './config'
 // Re-export for any server-side consumers that need the full template
 export { buildDigestHtml }
 
-const resend = new Resend(process.env.RESEND_API_KEY!)
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'trend-radar@pernodricard.com'
+// Lazy-initialized so the constructor doesn't throw at build time when env vars aren't present
+function getResendClient() {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not set')
+  }
+  return new Resend(process.env.RESEND_API_KEY)
+}
+
+const FROM_EMAIL = () => process.env.RESEND_FROM_EMAIL || 'trend-radar@pernodricard.com'
 
 export async function sendDigestEmail(
   trends: ScoredTrend[],
@@ -21,6 +28,8 @@ export async function sendDigestEmail(
 
   const html = buildDigestHtml(trends, weekNumber, year)
   const subject = `Trend Radar — Week ${weekNumber} ${APP_CONFIG.fiscalYear} | ${trends.length} Trends Scored`
+  const resend = getResendClient()
+  const fromEmail = FROM_EMAIL()
 
   console.log(`[email] Sending digest to ${DIGEST_RECIPIENTS.length} recipients`)
 
@@ -29,7 +38,7 @@ export async function sendDigestEmail(
 
     for (const recipient of DIGEST_RECIPIENTS) {
       const { data, error } = await resend.emails.send({
-        from: FROM_EMAIL,
+        from: fromEmail,
         to: recipient,
         subject,
         html,
