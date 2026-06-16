@@ -2,9 +2,12 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createServerClient } from './supabase'
 import type { RawTrend, ClaudeScoreResult, ScoredTrend } from '@/types'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-})
+function getAnthropicClient() {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY is not set')
+  }
+  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+}
 
 const SYSTEM_PROMPT = `You are a brand strategist for Pernod Ricard Middle East. You score social media trends for relevance to four spirits brands. You always respond in valid JSON only, no other text.
 
@@ -50,7 +53,7 @@ function getWeekNumber(date: Date): number {
 async function scoreSingleTrend(trend: RawTrend): Promise<ClaudeScoreResult> {
   console.log(`[scorer] Scoring trend: "${trend.trend_name}" (${trend.platform})`)
 
-  const message = await anthropic.messages.create({
+  const message = await getAnthropicClient().messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 512,
     system: SYSTEM_PROMPT,
