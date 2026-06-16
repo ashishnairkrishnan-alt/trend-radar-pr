@@ -15,7 +15,7 @@ Brands and their identities:
 - Chivas Regal: premium, sophisticated, slow moments, success, gifting, brotherhood
 - Absolut Vodka: bold, creative, artistic, expressive, inclusive, party
 - Jameson: social, relaxed, approachable, everyone's welcome, Irish warmth
-- Beefeater Gin: vibrant, city energy, London nightlife, colorful, gin culture
+- The Glenlivet: pioneering, single malt scotch, smooth, approachable luxury, nature, discovery
 
 For each trend, evaluate:
 1. Can this trend carry a spirits or nightlife narrative?
@@ -27,7 +27,7 @@ Return JSON in exactly this format:
   "chivas_score": number 1-5,
   "absolut_score": number 1-5,
   "jameson_score": number 1-5,
-  "beefeater_score": number 1-5,
+  "glenlivet_score": number 1-5,
   "top_brand": string,
   "opportunity_note": string (max 20 words, what the brand should do),
   "content_angle": string (max 15 words, the specific reel or post format)
@@ -80,7 +80,7 @@ async function scoreSingleTrend(trend: RawTrend): Promise<ClaudeScoreResult> {
     'chivas_score',
     'absolut_score',
     'jameson_score',
-    'beefeater_score',
+    'glenlivet_score',
   ]
   for (const key of scores) {
     const val = parsed[key] as number
@@ -90,7 +90,7 @@ async function scoreSingleTrend(trend: RawTrend): Promise<ClaudeScoreResult> {
   }
 
   console.log(
-    `[scorer] Scored "${trend.trend_name}": top_brand=${parsed.top_brand}, scores=[${parsed.chivas_score},${parsed.absolut_score},${parsed.jameson_score},${parsed.beefeater_score}]`
+    `[scorer] Scored "${trend.trend_name}": top_brand=${parsed.top_brand}, scores=[${parsed.chivas_score},${parsed.absolut_score},${parsed.jameson_score},${parsed.glenlivet_score}]`
   )
   return parsed
 }

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { DIGEST_RECIPIENTS, KEYWORD_CLUSTERS, APP_CONFIG, BRANDS } from '@/lib/config'
@@ -77,7 +77,7 @@ export default function SettingsPage() {
                   onClick={() => handleCopy(email, email)}
                   className="text-xs text-pr-muted hover:text-pr-navy transition-colors"
                 >
-                  {copied === email ? '✓ Copied' : 'Copy'}
+                  {copied === email ? 'âœ“ Copied' : 'Copy'}
                 </button>
               </div>
             ))}
@@ -92,7 +92,7 @@ export default function SettingsPage() {
         {/* Cron schedule */}
         <SectionCard
           title="Scrape & Digest Schedule"
-          subtitle="Configured in vercel.json — runs automatically on Vercel"
+          subtitle="Configured in vercel.json â€” runs automatically on Vercel"
         >
           <div className="space-y-3">
             <div className="flex items-center gap-4 bg-pr-bg rounded-lg px-4 py-3">
@@ -202,7 +202,7 @@ export default function SettingsPage() {
                   className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono flex-shrink-0 ${
                     ep.method === 'GET'
                       ? 'bg-brand-jameson/10 text-brand-jameson'
-                      : 'bg-brand-beefeater/10 text-brand-beefeater'
+                      : 'bg-brand-glenlivet/10 text-brand-glenlivet'
                   }`}
                 >
                   {ep.method}
@@ -213,7 +213,7 @@ export default function SettingsPage() {
                   onClick={() => handleCopy(ep.path, ep.path)}
                   className="text-xs text-pr-muted hover:text-pr-navy transition-colors flex-shrink-0"
                 >
-                  {copied === ep.path ? '✓' : 'Copy'}
+                  {copied === ep.path ? 'âœ“' : 'Copy'}
                 </button>
               </div>
             ))}

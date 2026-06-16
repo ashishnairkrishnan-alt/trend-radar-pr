@@ -1,4 +1,4 @@
-import type { Config } from 'tailwindcss'
+﻿import type { Config } from 'tailwindcss'
 
 const config: Config = {
   content: [
@@ -18,12 +18,12 @@ const config: Config = {
         'brand-chivas': '#F5A623',
         'brand-absolut': '#8A94A6',
         'brand-jameson': '#4CAF72',
-        'brand-beefeater': '#E84855',
+        'brand-glenlivet': '#2E7D52',
         'ig-pink': '#E1306C',
         'tt-black': '#010101',
       },
       fontFamily: {
-        // Display / headings — matching Paid Media Dashboard
+        // Display / headings â€” matching Paid Media Dashboard
         'playfair': ['"Playfair Display"', 'Georgia', 'serif'],
         // Body / UI / metrics
         'dm-sans': ['"DM Sans"', 'system-ui', 'sans-serif'],

@@ -29,10 +29,10 @@ export const BRANDS: Brand[] = [
     scoreField: 'jameson_score',
   },
   {
-    key: 'beefeater',
-    name: 'Beefeater Gin',
-    color: '#E84855',
-    scoreField: 'beefeater_score',
+    key: 'glenlivet',
+    name: 'The Glenlivet',
+    color: '#2E7D52',
+    scoreField: 'glenlivet_score',
   },
 ]
 
@@ -90,5 +90,5 @@ export const APP_CONFIG = {
   fiscalYear: 'FY27',
   topTrendsPerDigest: 10,
   // Toggle brands off here if needed
-  activeBrands: ['chivas', 'absolut', 'jameson', 'beefeater'] as BrandKey[],
+  activeBrands: ['chivas', 'absolut', 'jameson', 'glenlivet'] as BrandKey[],
 }

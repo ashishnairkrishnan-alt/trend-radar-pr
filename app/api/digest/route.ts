@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { sendDigestEmail } from '@/lib/email'
 import { DIGEST_RECIPIENTS, APP_CONFIG } from '@/lib/config'
@@ -44,7 +44,7 @@ export async function POST() {
   // Sort by the score of the top_brand for that trend, descending
   const sorted = (trends as ScoredTrend[]).sort((a, b) => {
     const getTopScore = (t: ScoredTrend) => {
-      const scores = [t.chivas_score, t.absolut_score, t.jameson_score, t.beefeater_score]
+      const scores = [t.chivas_score, t.absolut_score, t.jameson_score, t.glenlivet_score]
       return Math.max(...scores)
     }
     return getTopScore(b) - getTopScore(a)

@@ -33,7 +33,7 @@ create table if not exists scored_trends (
   chivas_score     int not null check (chivas_score between 1 and 5),
   absolut_score    int not null check (absolut_score between 1 and 5),
   jameson_score    int not null check (jameson_score between 1 and 5),
-  beefeater_score  int not null check (beefeater_score between 1 and 5),
+  glenlivet_score  int not null check (glenlivet_score between 1 and 5),
   top_brand        text not null,
   opportunity_note text not null,
   content_angle    text not null,

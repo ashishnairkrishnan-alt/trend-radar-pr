@@ -25,7 +25,7 @@ export interface ScoredTrend {
   chivas_score: number
   absolut_score: number
   jameson_score: number
-  beefeater_score: number
+  glenlivet_score: number
   top_brand: string
   opportunity_note: string
   content_angle: string
@@ -46,19 +46,19 @@ export interface ClaudeScoreResult {
   chivas_score: number
   absolut_score: number
   jameson_score: number
-  beefeater_score: number
+  glenlivet_score: number
   top_brand: string
   opportunity_note: string
   content_angle: string
 }
 
-export type BrandKey = 'chivas' | 'absolut' | 'jameson' | 'beefeater'
+export type BrandKey = 'chivas' | 'absolut' | 'jameson' | 'glenlivet'
 
 export interface Brand {
   key: BrandKey
   name: string
   color: string
-  scoreField: keyof Pick<ScoredTrend, 'chivas_score' | 'absolut_score' | 'jameson_score' | 'beefeater_score'>
+  scoreField: keyof Pick<ScoredTrend, 'chivas_score' | 'absolut_score' | 'jameson_score' | 'glenlivet_score'>
 }
 
 export interface ApifyWebhookPayload {

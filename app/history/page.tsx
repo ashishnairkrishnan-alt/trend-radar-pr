@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { getBrowserClient } from '@/lib/supabase'
@@ -18,7 +18,7 @@ function getWeekNumber(date: Date): number {
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     sent: 'bg-brand-jameson/10 text-brand-jameson border-brand-jameson/20',
-    failed: 'bg-brand-beefeater/10 text-brand-beefeater border-brand-beefeater/20',
+    failed: 'bg-brand-glenlivet/10 text-brand-glenlivet border-brand-glenlivet/20',
     pending: 'bg-pr-gold/10 text-pr-gold border-pr-gold/20',
   }
   return (
@@ -79,7 +79,7 @@ export default function HistoryPage() {
           Archive
         </div>
         <h1 className="text-2xl font-serif font-bold text-pr-text">Digest History</h1>
-        <p className="text-sm text-pr-muted mt-0.5">Past weekly email digests — click to preview</p>
+        <p className="text-sm text-pr-muted mt-0.5">Past weekly email digests â€” click to preview</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -112,7 +112,7 @@ export default function HistoryPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="text-sm font-bold text-pr-text font-serif">
-                        Week {weekNum} · {sentDate.getFullYear()}
+                        Week {weekNum} Â· {sentDate.getFullYear()}
                       </div>
                       <div className="text-xs text-pr-muted mt-0.5">
                         {sentDate.toLocaleDateString('en-GB', {
@@ -127,7 +127,7 @@ export default function HistoryPage() {
                   </div>
                   <div className="flex items-center gap-3 mt-2 text-xs text-pr-muted">
                     <span>{log.trend_count} trends</span>
-                    <span>·</span>
+                    <span>Â·</span>
                     <span>{log.recipient_count} recipients</span>
                   </div>
                 </button>
@@ -141,7 +141,7 @@ export default function HistoryPage() {
           {!selectedLog ? (
             <div className="bg-white rounded-lg shadow-card p-12 text-center h-full flex flex-col items-center justify-center">
               <div className="w-12 h-12 rounded-full bg-pr-cream flex items-center justify-center mb-4">
-                <span className="text-xl">📧</span>
+                <span className="text-xl">ðŸ“§</span>
               </div>
               <p className="text-pr-muted text-sm">Select a digest from the left to preview it</p>
             </div>
@@ -153,7 +153,7 @@ export default function HistoryPage() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-bold text-pr-text">
-                  Email Preview — Week {getWeekNumber(new Date(selectedLog.sent_at))}
+                  Email Preview â€” Week {getWeekNumber(new Date(selectedLog.sent_at))}
                 </h2>
                 <span className="text-xs text-pr-muted">{previewTrends.length} trends</span>
               </div>
