@@ -55,12 +55,12 @@ export const KEYWORD_CLUSTERS: Record<string, string[]> = {
   'MENA Region': [
     'dubai',
     'abudhabi',
-    'riyadh',
     'doha',
     'gcc',
     'uae',
     'dubainightlife',
     'dubaibar',
+    'qatar',
   ],
   'Viral Signals': ['fyp', 'trending', 'viral', 'reels', 'explore'],
   'Brand Adjacent': [

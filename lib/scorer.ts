@@ -114,6 +114,7 @@ export async function scoreTrendBatch(rawTrends: RawTrend[]): Promise<void> {
         trend_type: trend.trend_type,
         emotional_hook: trend.emotional_hook,
         spike_pct: trend.spike_pct,
+        source_url: trend.source_url,
         ...scores,
         week_number: weekNumber,
         year,

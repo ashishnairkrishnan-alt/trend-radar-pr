@@ -14,6 +14,7 @@ create table if not exists raw_trends (
   engagement_volume bigint default 0,
   spike_pct        numeric(8,2) default 0,
   raw_data         jsonb default '{}',
+  source_url       text,
   processed        boolean default false,
   created_at       timestamptz default now()
 );
@@ -37,10 +38,15 @@ create table if not exists scored_trends (
   top_brand        text not null,
   opportunity_note text not null,
   content_angle    text not null,
+  source_url       text,
   week_number      int not null,
   year             int not null,
   created_at       timestamptz default now()
 );
+
+-- Run these if tables already exist (adds source_url column):
+-- alter table raw_trends add column if not exists source_url text;
+-- alter table scored_trends add column if not exists source_url text;
 
 create index if not exists scored_trends_week_year_idx on scored_trends(week_number, year);
 create index if not exists scored_trends_top_brand_idx on scored_trends(top_brand);

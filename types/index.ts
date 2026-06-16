@@ -10,6 +10,7 @@ export interface RawTrend {
   engagement_volume: number
   spike_pct: number
   raw_data: Record<string, unknown>
+  source_url?: string
   processed: boolean
   created_at: string
 }
@@ -29,6 +30,7 @@ export interface ScoredTrend {
   top_brand: string
   opportunity_note: string
   content_angle: string
+  source_url?: string
   week_number: number
   year: number
   created_at: string
