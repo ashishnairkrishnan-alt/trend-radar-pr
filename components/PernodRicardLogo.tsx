@@ -1,43 +1,46 @@
-interface PernodRicardLogoProps {
+interface Props {
   size?: number
   className?: string
 }
 
-export default function PernodRicardLogo({ size = 36, className = '' }: PernodRicardLogoProps) {
+export default function PernodRicardLogo({ size = 40, className = '' }: Props) {
   const cx = 50
   const cy = 50
   const outerR = 47
-  const innerR = 14
-  const numSegments = 11
-  const anglePerSegment = 360 / numSegments
-  const gapDeg = 1.5 // small gap between segments
+  const innerR = 13
+  const n = 11
+  const slotDeg = 360 / n          // ~32.73° per slot
+  const segDeg = 29                 // segment fills 29° leaving a ~3.7° gap
+  const startDeg = -90              // first segment centred at top (12 o'clock)
 
-  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const rad = (d: number) => (d * Math.PI) / 180
 
-  const getPoint = (angleDeg: number, radius: number) => ({
-    x: cx + radius * Math.cos(toRad(angleDeg - 90)),
-    y: cy + radius * Math.sin(toRad(angleDeg - 90)),
+  const pt = (angleDeg: number, r: number) => ({
+    x: +(cx + r * Math.cos(rad(angleDeg))).toFixed(3),
+    y: +(cy + r * Math.sin(rad(angleDeg))).toFixed(3),
   })
 
-  const createSegmentPath = (startAngle: number, endAngle: number) => {
-    const s = startAngle + gapDeg / 2
-    const e = endAngle - gapDeg / 2
-    const p1 = getPoint(s, innerR)
-    const p2 = getPoint(e, innerR)
-    const p3 = getPoint(e, outerR)
-    const p4 = getPoint(s, outerR)
-    const largeArc = endAngle - startAngle > 180 ? 1 : 0
-    return [
-      `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`,
-      `A ${innerR} ${innerR} 0 ${largeArc} 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`,
-      `L ${p3.x.toFixed(2)} ${p3.y.toFixed(2)}`,
-      `A ${outerR} ${outerR} 0 ${largeArc} 0 ${p4.x.toFixed(2)} ${p4.y.toFixed(2)}`,
+  const segments = Array.from({ length: n }, (_, i) => {
+    const mid = startDeg + i * slotDeg
+    const s = mid - segDeg / 2
+    const e = mid + segDeg / 2
+
+    const i1 = pt(s, innerR)
+    const i2 = pt(e, innerR)
+    const o1 = pt(s, outerR)
+    const o2 = pt(e, outerR)
+
+    const d = [
+      `M ${i1.x} ${i1.y}`,
+      `A ${innerR} ${innerR} 0 0 1 ${i2.x} ${i2.y}`,
+      `L ${o2.x} ${o2.y}`,
+      `A ${outerR} ${outerR} 0 0 0 ${o1.x} ${o1.y}`,
       'Z',
     ].join(' ')
-  }
 
-  // Alternating dark navy and light blue — matching the Pernod Ricard brand palette
-  const colors = ['#0D2D6B', '#6B9FD4']
+    // Alternating dark navy / light blue — exact Pernod Ricard palette
+    return { d, fill: i % 2 === 0 ? '#1B3F82' : '#7BADD8' }
+  })
 
   return (
     <svg
@@ -49,19 +52,11 @@ export default function PernodRicardLogo({ size = 36, className = '' }: PernodRi
       className={className}
       aria-label="Pernod Ricard"
     >
-      {Array.from({ length: numSegments }).map((_, i) => {
-        const startAngle = i * anglePerSegment
-        const endAngle = (i + 1) * anglePerSegment
-        return (
-          <path
-            key={i}
-            d={createSegmentPath(startAngle, endAngle)}
-            fill={colors[i % 2]}
-          />
-        )
-      })}
-      {/* Central white oval */}
-      <ellipse cx={cx} cy={cy} rx={innerR - 1} ry={innerR - 1} fill="white" />
+      {segments.map((s, i) => (
+        <path key={i} d={s.d} fill={s.fill} />
+      ))}
+      {/* White centre circle */}
+      <circle cx={cx} cy={cy} r={innerR - 1.5} fill="white" />
     </svg>
   )
 }
