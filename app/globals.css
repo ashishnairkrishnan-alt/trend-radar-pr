@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --pr-bg: #F4F4F6;
+  --pr-navy: #0D1B3E;
+  --pr-gold: #C9A84C;
+  --pr-cream: #FAF6EE;
+  --pr-text: #1A2B4A;
+  --pr-muted: #8A94A6;
+}
+
+html, body {
+  background: var(--pr-bg);
+  color: var(--pr-text);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--pr-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 3px;
+}
+
+/* Gold text utility */
+.text-gold {
+  color: var(--pr-gold);
+}
