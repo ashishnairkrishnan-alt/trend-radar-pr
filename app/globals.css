@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Pernod Ricard brand fonts — matching Paid Media Dashboard exactly */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+/* Fonts are loaded via <link> tags in layout.tsx for reliability */
 
 :root {
   --pr-bg: #F4F4F6;
@@ -12,22 +11,15 @@
   --pr-cream: #FAF6EE;
   --pr-text: #1A2B4A;
   --pr-muted: #8A94A6;
-  --font-display: 'Playfair Display', Georgia, serif;
-  --font-body: 'DM Sans', system-ui, sans-serif;
 }
 
 html, body {
   background: var(--pr-bg);
   color: var(--pr-text);
-  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* All numbers use tabular nums for alignment */
-.tabular { font-variant-numeric: tabular-nums; }
-
-/* Smooth scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--pr-bg); }
 ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }

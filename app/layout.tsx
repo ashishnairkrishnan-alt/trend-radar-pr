@@ -10,62 +10,108 @@ export const metadata: Metadata = {
 
 function Header() {
   return (
-    <header className="sticky top-0 z-50 flex h-[72px] shadow-[0_1px_8px_rgba(0,0,0,0.18)]">
+    <header className="sticky top-0 z-50 flex h-[70px]" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.22)' }}>
 
-      {/* ── White brand section — matches Paid Media Dashboard sidebar top ── */}
+      {/* White brand block — logo + "Pernod Ricard" on white, like the sidebar */}
       <Link
         href="/"
-        className="flex items-center gap-3.5 px-6 bg-white border-r border-[#E2E6EE] min-w-[192px] shrink-0 hover:bg-[#FAFAFA] transition-colors"
+        className="flex items-center gap-3.5 px-6 bg-white shrink-0 border-r border-[#DDE1EA] hover:bg-slate-50 transition-colors duration-150"
+        style={{ minWidth: 200 }}
       >
-        <PernodRicardLogo size={44} />
-        <span className="text-[14px] font-dm-sans font-semibold text-[#0D1B3E] tracking-tight leading-none">
+        <PernodRicardLogo size={46} />
+        <span style={{
+          fontFamily: '"DM Sans", system-ui, sans-serif',
+          fontWeight: 600,
+          fontSize: 15,
+          color: '#0D1B3E',
+          letterSpacing: '-0.01em',
+          lineHeight: 1,
+        }}>
           Pernod Ricard
         </span>
       </Link>
 
-      {/* ── Dark navy content area — matches the Paid Media Dashboard header ── */}
-      <div className="flex flex-1 items-center justify-between bg-[#0D1B3E] px-6">
-
+      {/* Dark navy content header — matching Paid Media Dashboard exactly */}
+      <div
+        className="flex flex-1 items-center justify-between px-7"
+        style={{ background: '#0D1B3E' }}
+      >
         {/* Title hierarchy */}
-        <div className="flex flex-col justify-center gap-[2px]">
-          <span
-            className="text-[9px] font-dm-sans font-medium text-white/35 uppercase"
-            style={{ letterSpacing: '0.22em' }}
-          >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{
+            fontFamily: '"DM Sans", system-ui, sans-serif',
+            fontWeight: 500,
+            fontSize: 10,
+            color: 'rgba(255,255,255,0.38)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.2em',
+          }}>
             Pernod Ricard
           </span>
-          <span className="text-[24px] font-playfair font-semibold text-white leading-none tracking-tight">
+          <span style={{
+            fontFamily: '"Playfair Display", Georgia, serif',
+            fontWeight: 600,
+            fontSize: 26,
+            color: '#FFFFFF',
+            letterSpacing: '-0.02em',
+            lineHeight: 1,
+          }}>
             Trend Radar
           </span>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex items-center gap-1">
-          <NavLink href="/">Dashboard</NavLink>
-          <NavLink href="/history">History</NavLink>
-          <NavLink href="/settings">Settings</NavLink>
+        {/* Nav */}
+        <nav style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {[
+            { href: '/', label: 'Dashboard' },
+            { href: '/history', label: 'History' },
+            { href: '/settings', label: 'Settings' },
+          ].map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              style={{
+                fontFamily: '"DM Sans", system-ui, sans-serif',
+                fontWeight: 500,
+                fontSize: 13.5,
+                color: 'rgba(255,255,255,0.6)',
+                padding: '8px 16px',
+                borderRadius: 8,
+                transition: 'all 0.15s',
+                textDecoration: 'none',
+              }}
+              onMouseEnter={e => {
+                ;(e.target as HTMLElement).style.color = '#fff'
+                ;(e.target as HTMLElement).style.background = 'rgba(255,255,255,0.08)'
+              }}
+              onMouseLeave={e => {
+                ;(e.target as HTMLElement).style.color = 'rgba(255,255,255,0.6)'
+                ;(e.target as HTMLElement).style.background = 'transparent'
+              }}
+            >
+              {label}
+            </Link>
+          ))}
         </nav>
-
       </div>
-    </header>
-  )
-}
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="px-4 py-2 rounded-md text-[13px] font-dm-sans font-medium text-white/55 hover:text-white hover:bg-white/[0.08] transition-all duration-150"
-    >
-      {children}
-    </Link>
+    </header>
   )
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-pr-bg font-dm-sans antialiased">
+      <head>
+        {/* Fonts loaded via link tags — more reliable than CSS @import in Next.js */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="min-h-screen bg-pr-bg antialiased" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>
         <Header />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {children}
