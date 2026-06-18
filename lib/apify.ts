@@ -62,11 +62,11 @@ export async function triggerAllScrapers(): Promise<ActorRunResult[]> {
   const allKeywords = Object.values(KEYWORD_CLUSTERS).flat()
   const results: ActorRunResult[] = []
 
-  // TikTok scraper
+  // TikTok scraper — 10 results per keyword, no media downloads
   try {
     const tiktokResult = await runActor(APIFY_ACTORS.tiktokScraper, {
       hashtags: allKeywords,
-      resultsPerPage: 50,
+      resultsPerPage: 10,
       shouldDownloadVideos: false,
       shouldDownloadCovers: false,
       shouldDownloadSubtitles: false,
@@ -77,11 +77,11 @@ export async function triggerAllScrapers(): Promise<ActorRunResult[]> {
     console.error('[apify] TikTok scraper failed:', err)
   }
 
-  // Instagram hashtag scraper
+  // Instagram hashtag scraper — 10 results per keyword
   try {
     const igHashtagResult = await runActor(APIFY_ACTORS.instagramHashtag, {
       hashtags: allKeywords,
-      resultsLimit: 50,
+      resultsLimit: 10,
       scrapeType: 'posts',
     })
     results.push(igHashtagResult)
@@ -89,16 +89,8 @@ export async function triggerAllScrapers(): Promise<ActorRunResult[]> {
     console.error('[apify] Instagram hashtag scraper failed:', err)
   }
 
-  // Instagram reel scraper
-  try {
-    const igReelResult = await runActor(APIFY_ACTORS.instagramReel, {
-      hashtags: allKeywords.slice(0, 20), // reels scraper has tighter limits
-      resultsLimit: 30,
-    })
-    results.push(igReelResult)
-  } catch (err) {
-    console.error('[apify] Instagram reel scraper failed:', err)
-  }
+  // Note: Instagram reel scraper disabled to reduce Apify compute cost
+  // Re-enable by uncommenting when on higher plan
 
   console.log(`[apify] Started ${results.length}/3 scrapers`)
   return results

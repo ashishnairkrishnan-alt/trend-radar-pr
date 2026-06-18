@@ -67,6 +67,8 @@ function SourceVideo({ url, platform }: { url: string; platform: string }) {
   const isIG = platform === 'instagram'
   const isTikTok = platform === 'tiktok'
   const videoId = isTikTok ? getTikTokVideoId(url) : null
+  // Only show Watch/embed for real video URLs (not hashtag/explore pages)
+  const isRealVideo = !!videoId
   const bgColor = isIG ? '#E1306C' : '#010101'
 
   return (
@@ -97,8 +99,8 @@ function SourceVideo({ url, platform }: { url: string; platform: string }) {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {/* Embed toggle — only for TikTok with real video ID */}
-          {isTikTok && videoId && (
+          {/* Embed toggle — only for real TikTok video URLs */}
+          {isTikTok && isRealVideo && (
             <button
               onClick={() => setShowEmbed(!showEmbed)}
               className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-all"
@@ -128,7 +130,7 @@ function SourceVideo({ url, platform }: { url: string; platform: string }) {
       </div>
 
       {/* TikTok inline embed */}
-      {showEmbed && videoId && (
+      {showEmbed && isRealVideo && videoId && (
         <div style={{ height: 500, position: 'relative', background: '#000' }}>
           <iframe
             src={`https://www.tiktok.com/embed/v2/${videoId}`}
