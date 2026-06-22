@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { scoreTrendBatch } from '@/lib/scorer'
 import {
   fetchDatasetItems,
   normaliseTikTokItem,
@@ -8,27 +7,23 @@ import {
   aggregateAudioTrends,
   NormalisedTrend,
 } from '@/lib/apify'
-import type { RawTrend } from '@/types'
 
 export const maxDuration = 60
 
 const APIFY_BASE = 'https://api.apify.com/v2'
 
-async function getRunDatasetId(runId: string): Promise<{ datasetId: string; status: string }> {
+async function getRunInfo(runId: string) {
   const apiKey = process.env.APIFY_API_KEY!
   const res = await fetch(`${APIFY_BASE}/actor-runs/${runId}?token=${apiKey}`)
   if (!res.ok) throw new Error(`Apify run lookup failed: ${res.status}`)
   const json = await res.json()
-  return {
-    status: json.data.status,
-    datasetId: json.data.defaultDatasetId,
-  }
+  return { status: json.data.status as string, datasetId: json.data.defaultDatasetId as string }
 }
 
-async function processRun(runId: string, platform: 'tiktok' | 'instagram') {
-  const { status, datasetId } = await getRunDatasetId(runId)
+async function fetchAndInsertRun(runId: string, platform: 'tiktok' | 'instagram') {
+  const { status, datasetId } = await getRunInfo(runId)
   if (status !== 'SUCCEEDED') {
-    return { runId, status, skipped: true, reason: `Run not succeeded yet (${status})` }
+    return { runId, status, skipped: true, reason: `Run status: ${status} — try again soon` }
   }
 
   const items = await fetchDatasetItems(datasetId) as Record<string, unknown>[]
@@ -39,27 +34,17 @@ async function processRun(runId: string, platform: 'tiktok' | 'instagram') {
     const norm = isTikTok ? normaliseTikTokItem(item) : normaliseInstagramItem(item)
     if (norm) normalised.push(norm)
   }
-
-  if (isTikTok) {
-    const audioTrends = aggregateAudioTrends(items)
-    normalised.push(...audioTrends)
-  }
+  if (isTikTok) normalised.push(...aggregateAudioTrends(items))
 
   if (normalised.length === 0) {
-    return { runId, status, skipped: true, reason: 'No normalisable items in dataset' }
+    return { runId, status, skipped: true, reason: 'No usable items in dataset' }
   }
 
   const supabase = createServerClient()
-  const { data: inserted, error } = await supabase
-    .from('raw_trends')
-    .insert(normalised)
-    .select()
-
+  const { data: inserted, error } = await supabase.from('raw_trends').insert(normalised).select()
   if (error) throw new Error(`DB insert failed: ${error.message}`)
 
-  await scoreTrendBatch(inserted as RawTrend[])
-
-  return { runId, status, normalised: normalised.length, scored: inserted?.length }
+  return { runId, status, inserted: inserted?.length }
 }
 
 export async function GET(request: NextRequest) {
@@ -68,15 +53,20 @@ export async function GET(request: NextRequest) {
   const igRunId = searchParams.get('ig')
 
   if (!tiktokRunId && !igRunId) {
-    return NextResponse.json(
-      { error: 'Pass ?tiktok=RUN_ID and/or ?ig=RUN_ID' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Pass ?tiktok=RUN_ID and/or ?ig=RUN_ID' }, { status: 400 })
   }
 
   const results = []
-  if (tiktokRunId) results.push(await processRun(tiktokRunId, 'tiktok'))
-  if (igRunId) results.push(await processRun(igRunId, 'instagram'))
+  if (tiktokRunId) results.push(await fetchAndInsertRun(tiktokRunId, 'tiktok'))
+  if (igRunId) results.push(await fetchAndInsertRun(igRunId, 'instagram'))
 
-  return NextResponse.json({ success: true, results })
+  const totalInserted = results.reduce((sum, r) => sum + (r.inserted ?? 0), 0)
+
+  return NextResponse.json({
+    success: true,
+    results,
+    next: totalInserted > 0
+      ? 'Raw trends saved — now call /api/process-raw to score with Claude'
+      : 'Nothing inserted',
+  })
 }
