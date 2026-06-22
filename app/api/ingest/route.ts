@@ -6,7 +6,7 @@ import { scoreTrendBatch } from '@/lib/scorer'
 import {
   fetchDatasetItems,
   normaliseTikTokItem,
-  normaliseInstagramItem,
+  aggregateInstagramHashtags,
   aggregateAudioTrends,
   NormalisedTrend,
 } from '@/lib/apify'
@@ -64,19 +64,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch Apify dataset' }, { status: 500 })
   }
 
-  // Normalise items
   const rawItems = items as Record<string, unknown>[]
   const normalised: NormalisedTrend[] = []
-  for (const item of rawItems) {
-    const norm = isTikTok ? normaliseTikTokItem(item) : normaliseInstagramItem(item)
-    if (norm) normalised.push(norm)
-  }
 
-  // Also extract trending audio from TikTok data (free — reuses the same dataset)
   if (isTikTok) {
+    for (const item of rawItems) {
+      const norm = normaliseTikTokItem(item)
+      if (norm) normalised.push(norm)
+    }
     const audioTrends = aggregateAudioTrends(rawItems)
     console.log(`[ingest] Extracted ${audioTrends.length} audio trends from TikTok data`)
     normalised.push(...audioTrends)
+  } else {
+    const igTrends = aggregateInstagramHashtags(rawItems)
+    console.log(`[ingest] Aggregated ${igTrends.length} IG hashtag trends`)
+    normalised.push(...igTrends)
   }
 
   console.log(`[ingest] Normalised ${normalised.length}/${items.length} items (inc. audio trends)`)

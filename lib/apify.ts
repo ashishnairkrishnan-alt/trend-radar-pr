@@ -166,7 +166,10 @@ export function normaliseTikTokItem(item: Record<string, unknown>): NormalisedTr
       trend_type: item.music ? 'audio' : 'hashtag',
       emotional_hook: (item.desc as string)?.slice(0, 120) || 'Trending on TikTok',
       engagement_volume: engagementVolume,
-      spike_pct: safeNum(typeof item.growthRate === 'number' ? (item.growthRate as number) * 100 : 0),
+      // growthRate rarely present — use view count as spike proxy (100k views ≈ 10% spike, cap 500%)
+      spike_pct: safeNum(typeof item.growthRate === 'number'
+        ? (item.growthRate as number) * 100
+        : Math.min(Math.round(engagementVolume / 10000), 500)),
       source_url: sourceUrl,
       raw_data: {},
     }
@@ -247,35 +250,76 @@ export function aggregateAudioTrends(items: Record<string, unknown>[]): Normalis
   return trends.sort((a, b) => b.spike_pct - a.spike_pct).slice(0, 5)
 }
 
-export function normaliseInstagramItem(item: Record<string, unknown>): NormalisedTrend | null {
-  try {
-    const hashtag =
-      (item.hashtag as string) ||
-      (item.ownerUsername as string) ||
-      (item.id as string) ||
-      ''
-    if (!hashtag) return null
+// Aggregates Instagram posts by hashtag — returns one trend per hashtag
+// using the highest-engagement post as the source URL
+export function aggregateInstagramHashtags(items: Record<string, unknown>[]): NormalisedTrend[] {
+  type HashtagEntry = {
+    tag: string
+    totalEngagement: number
+    postCount: number
+    bestPostUrl: string
+    bestPostEngagement: number
+    bestCaption: string
+  }
+  const tagMap = new Map<string, HashtagEntry>()
+
+  for (const item of items) {
+    const tag = (item.hashtag as string) || ''
+    if (!tag) continue
 
     const likes = safeNum(item.likesCount)
     const comments = safeNum(item.commentsCount)
     const views = safeNum(item.videoViewCount)
+    const engagement = likes + comments + views
+
+    // Skip posts with zero engagement (likely private or irrelevant)
+    if (engagement === 0) continue
 
     const shortCode = item.shortCode as string
-    const sourceUrl =
+    const postUrl =
       (item.url as string) ||
       (shortCode ? `https://www.instagram.com/p/${shortCode}/` : '')
+    const caption = ((item.caption as string) || '').replace(/[\x00-\x1F\x7F]/g, ' ').slice(0, 120)
 
-    return {
-      platform: 'instagram',
-      trend_name: hashtag,
-      trend_type: item.isVideo ? 'format' : 'hashtag',
-      emotional_hook: (item.caption as string)?.slice(0, 120) || 'Trending on Instagram',
-      engagement_volume: likes + comments + views,
-      spike_pct: 0,
-      source_url: sourceUrl,
-      raw_data: {},
+    const existing = tagMap.get(tag)
+    if (existing) {
+      existing.totalEngagement += engagement
+      existing.postCount++
+      if (engagement > existing.bestPostEngagement) {
+        existing.bestPostEngagement = engagement
+        existing.bestPostUrl = postUrl
+        existing.bestCaption = caption
+      }
+    } else {
+      tagMap.set(tag, {
+        tag,
+        totalEngagement: engagement,
+        postCount: 1,
+        bestPostUrl: postUrl,
+        bestPostEngagement: engagement,
+        bestCaption: caption,
+      })
     }
-  } catch {
-    return null
   }
+
+  const trends: NormalisedTrend[] = []
+  for (const entry of Array.from(tagMap.values())) {
+    if (entry.postCount < 2) continue // need at least 2 posts to call it a trend
+    const tagLabel = entry.tag.startsWith('#') ? entry.tag : `#${entry.tag}`
+    // Spike proxy: more posts + higher engagement = bigger spike, cap at 400
+    const spike = Math.min(Math.round((entry.postCount * 10) + (entry.totalEngagement / 1000)), 400)
+    trends.push({
+      platform: 'instagram',
+      trend_name: tagLabel,
+      trend_type: 'hashtag',
+      emotional_hook: entry.bestCaption || `Trending on Instagram with ${entry.postCount} posts`,
+      engagement_volume: entry.totalEngagement,
+      spike_pct: spike,
+      source_url: entry.bestPostUrl,
+      raw_data: {},
+    })
+  }
+
+  // Top 8 hashtags by spike
+  return trends.sort((a, b) => b.spike_pct - a.spike_pct).slice(0, 8)
 }
