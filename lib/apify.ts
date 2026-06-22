@@ -129,16 +129,31 @@ export interface NormalisedTrend {
   raw_data: Record<string, unknown>
 }
 
+function safeJson(obj: unknown): Record<string, unknown> {
+  try {
+    return JSON.parse(JSON.stringify(obj, (_k, v) => {
+      if (typeof v === 'number' && !isFinite(v)) return 0
+      return v
+    }))
+  } catch {
+    return {}
+  }
+}
+
+function safeNum(val: unknown, fallback = 0): number {
+  const n = Number(val)
+  return isFinite(n) ? n : fallback
+}
+
 export function normaliseTikTokItem(item: Record<string, unknown>): NormalisedTrend | null {
   try {
     const hashtag = (item.challengeName as string) || (item.title as string) || ''
     if (!hashtag) return null
 
-    const views = (item.stats as Record<string, number>)?.viewCount || 0
-    const plays = (item.stats as Record<string, number>)?.playCount || 0
+    const views = safeNum((item.stats as Record<string, number>)?.viewCount)
+    const plays = safeNum((item.stats as Record<string, number>)?.playCount)
     const engagementVolume = Math.max(views, plays)
 
-    // Extract the specific video URL — webVideoUrl is the direct TikTok post link
     const authorName = (item.authorMeta as Record<string, string>)?.name || 'unknown'
     const videoId = item.id as string
     const sourceUrl =
@@ -151,9 +166,9 @@ export function normaliseTikTokItem(item: Record<string, unknown>): NormalisedTr
       trend_type: item.music ? 'audio' : 'hashtag',
       emotional_hook: (item.desc as string)?.slice(0, 120) || 'Trending on TikTok',
       engagement_volume: engagementVolume,
-      spike_pct: typeof item.growthRate === 'number' ? (item.growthRate as number) * 100 : 0,
+      spike_pct: safeNum(typeof item.growthRate === 'number' ? (item.growthRate as number) * 100 : 0),
       source_url: sourceUrl,
-      raw_data: item,
+      raw_data: safeJson(item),
     }
   } catch {
     return null
@@ -241,11 +256,10 @@ export function normaliseInstagramItem(item: Record<string, unknown>): Normalise
       ''
     if (!hashtag) return null
 
-    const likes = (item.likesCount as number) || 0
-    const comments = (item.commentsCount as number) || 0
-    const views = (item.videoViewCount as number) || 0
+    const likes = safeNum(item.likesCount)
+    const comments = safeNum(item.commentsCount)
+    const views = safeNum(item.videoViewCount)
 
-    // Extract the specific post URL
     const shortCode = item.shortCode as string
     const sourceUrl =
       (item.url as string) ||
@@ -259,7 +273,7 @@ export function normaliseInstagramItem(item: Record<string, unknown>): Normalise
       engagement_volume: likes + comments + views,
       spike_pct: 0,
       source_url: sourceUrl,
-      raw_data: item,
+      raw_data: safeJson(item),
     }
   } catch {
     return null
