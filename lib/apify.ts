@@ -168,7 +168,7 @@ export function normaliseTikTokItem(item: Record<string, unknown>): NormalisedTr
       engagement_volume: engagementVolume,
       spike_pct: safeNum(typeof item.growthRate === 'number' ? (item.growthRate as number) * 100 : 0),
       source_url: sourceUrl,
-      raw_data: safeJson(item),
+      raw_data: {},
     }
   } catch {
     return null
@@ -239,7 +239,7 @@ export function aggregateAudioTrends(items: Record<string, unknown>[]): Normalis
       engagement_volume: audio.totalViews,
       spike_pct: Math.min(audio.count * 15, 500), // proxy: more videos = more spike, cap 500
       source_url: audio.bestVideoUrl,
-      raw_data: { musicName: audio.name, musicAuthor: audio.author, videoCount: audio.count },
+      raw_data: {},
     })
   }
 
@@ -273,7 +273,7 @@ export function normaliseInstagramItem(item: Record<string, unknown>): Normalise
       engagement_volume: likes + comments + views,
       spike_pct: 0,
       source_url: sourceUrl,
-      raw_data: safeJson(item),
+      raw_data: {},
     }
   } catch {
     return null
