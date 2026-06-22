@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const maxDuration = 60 // Vercel Pro: 60s for scoring batch
 import { createServerClient } from '@/lib/supabase'
 import { scoreTrendBatch } from '@/lib/scorer'
 import {
   fetchDatasetItems,
   normaliseTikTokItem,
   normaliseInstagramItem,
+  aggregateAudioTrends,
   NormalisedTrend,
 } from '@/lib/apify'
 import type { RawTrend } from '@/types'
@@ -62,14 +65,21 @@ export async function POST(request: NextRequest) {
   }
 
   // Normalise items
+  const rawItems = items as Record<string, unknown>[]
   const normalised: NormalisedTrend[] = []
-  for (const item of items) {
-    const raw = item as Record<string, unknown>
-    const norm = isTikTok ? normaliseTikTokItem(raw) : normaliseInstagramItem(raw)
+  for (const item of rawItems) {
+    const norm = isTikTok ? normaliseTikTokItem(item) : normaliseInstagramItem(item)
     if (norm) normalised.push(norm)
   }
 
-  console.log(`[ingest] Normalised ${normalised.length}/${items.length} items`)
+  // Also extract trending audio from TikTok data (free — reuses the same dataset)
+  if (isTikTok) {
+    const audioTrends = aggregateAudioTrends(rawItems)
+    console.log(`[ingest] Extracted ${audioTrends.length} audio trends from TikTok data`)
+    normalised.push(...audioTrends)
+  }
+
+  console.log(`[ingest] Normalised ${normalised.length}/${items.length} items (inc. audio trends)`)
 
   if (normalised.length === 0) {
     return NextResponse.json({ message: 'No usable trends in payload', count: 0 })

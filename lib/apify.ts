@@ -9,7 +9,11 @@ interface ActorRunResult {
 }
 
 function getWebhookUrl(): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  // VERCEL_URL is auto-set by Vercel on every deployment (no https:// prefix)
+  // NEXT_PUBLIC_APP_URL is the manual override (must include https://)
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
   const secret = process.env.APIFY_WEBHOOK_SECRET || ''
   return `${appUrl}/api/ingest?secret=${encodeURIComponent(secret)}`
 }
@@ -154,6 +158,78 @@ export function normaliseTikTokItem(item: Record<string, unknown>): NormalisedTr
   } catch {
     return null
   }
+}
+
+// Aggregates trending audio from a batch of raw TikTok items.
+// Music appearing in 2+ videos is considered trending — no extra Apify credits needed.
+export function aggregateAudioTrends(items: Record<string, unknown>[]): NormalisedTrend[] {
+  type AudioEntry = {
+    name: string
+    author: string
+    count: number
+    totalViews: number
+    bestVideoUrl: string
+    bestVideoViews: number
+  }
+  const musicMap = new Map<string, AudioEntry>()
+
+  for (const item of items) {
+    const music = item.music as Record<string, unknown> | undefined
+    if (!music) continue
+
+    const musicId = (music.musicId as string) || (music.id as string)
+    if (!musicId) continue
+
+    const musicName = (music.musicName as string) || (music.title as string) || ''
+    const musicAuthor = (music.musicAuthor as string) || (music.authorName as string) || ''
+    if (!musicName) continue
+
+    const stats = item.stats as Record<string, number> | undefined
+    const views = stats?.viewCount || stats?.playCount || 0
+    const videoId = item.id as string
+    const authorName = (item.authorMeta as Record<string, string>)?.name || 'unknown'
+    const videoUrl =
+      (item.webVideoUrl as string) ||
+      (videoId ? `https://www.tiktok.com/@${authorName}/video/${videoId}` : '')
+
+    const existing = musicMap.get(musicId)
+    if (existing) {
+      existing.count++
+      existing.totalViews += views
+      if (views > existing.bestVideoViews) {
+        existing.bestVideoViews = views
+        existing.bestVideoUrl = videoUrl
+      }
+    } else {
+      musicMap.set(musicId, {
+        name: musicName,
+        author: musicAuthor,
+        count: 1,
+        totalViews: views,
+        bestVideoUrl: videoUrl,
+        bestVideoViews: views,
+      })
+    }
+  }
+
+  const trends: NormalisedTrend[] = []
+  for (const [, audio] of musicMap) {
+    if (audio.count < 2) continue // only truly recurring audio
+    const label = audio.author ? `"${audio.name}" by ${audio.author}` : `"${audio.name}"`
+    trends.push({
+      platform: 'tiktok',
+      trend_name: label,
+      trend_type: 'audio',
+      emotional_hook: `Trending audio used in ${audio.count} videos this week`,
+      engagement_volume: audio.totalViews,
+      spike_pct: Math.min(audio.count * 15, 500), // proxy: more videos = more spike, cap 500
+      source_url: audio.bestVideoUrl,
+      raw_data: { musicName: audio.name, musicAuthor: audio.author, videoCount: audio.count },
+    })
+  }
+
+  // Return top 5 audio trends by spike_pct
+  return trends.sort((a, b) => b.spike_pct - a.spike_pct).slice(0, 5)
 }
 
 export function normaliseInstagramItem(item: Record<string, unknown>): NormalisedTrend | null {
