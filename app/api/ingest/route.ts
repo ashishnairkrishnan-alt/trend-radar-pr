@@ -6,7 +6,7 @@ import { scoreTrendBatch } from '@/lib/scorer'
 import {
   fetchDatasetItems,
   normaliseTikTokItem,
-  aggregateInstagramHashtags,
+  aggregateInstagramHashtagTrends,
   aggregateAudioTrends,
   NormalisedTrend,
 } from '@/lib/apify'
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     console.log(`[ingest] Extracted ${audioTrends.length} audio trends from TikTok data`)
     normalised.push(...audioTrends)
   } else {
-    const igTrends = aggregateInstagramHashtags(rawItems)
+    const igTrends = aggregateInstagramHashtagTrends(rawItems)
     console.log(`[ingest] Aggregated ${igTrends.length} IG hashtag trends`)
     normalised.push(...igTrends)
   }
