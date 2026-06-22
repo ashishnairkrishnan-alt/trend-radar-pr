@@ -213,7 +213,7 @@ export function aggregateAudioTrends(items: Record<string, unknown>[]): Normalis
   }
 
   const trends: NormalisedTrend[] = []
-  for (const [, audio] of musicMap) {
+  for (const audio of Array.from(musicMap.values())) {
     if (audio.count < 2) continue // only truly recurring audio
     const label = audio.author ? `"${audio.name}" by ${audio.author}` : `"${audio.name}"`
     trends.push({
