@@ -56,17 +56,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Pass ?tiktok=RUN_ID and/or ?ig=RUN_ID' }, { status: 400 })
   }
 
-  const results = []
-  if (tiktokRunId) results.push(await fetchAndInsertRun(tiktokRunId, 'tiktok'))
-  if (igRunId) results.push(await fetchAndInsertRun(igRunId, 'instagram'))
+  try {
+    const results = []
+    if (tiktokRunId) results.push(await fetchAndInsertRun(tiktokRunId, 'tiktok'))
+    if (igRunId) results.push(await fetchAndInsertRun(igRunId, 'instagram'))
 
-  const totalInserted = results.reduce((sum, r) => sum + (r.inserted ?? 0), 0)
+    const totalInserted = results.reduce((sum, r) => sum + (r.inserted ?? 0), 0)
 
-  return NextResponse.json({
-    success: true,
-    results,
-    next: totalInserted > 0
-      ? 'Raw trends saved — now call /api/process-raw to score with Claude'
-      : 'Nothing inserted',
-  })
+    return NextResponse.json({
+      success: true,
+      results,
+      next: totalInserted > 0
+        ? 'Raw trends saved — now call /api/process-raw to score with Claude'
+        : 'Nothing inserted — check run IDs or trigger a new scrape',
+    })
+  } catch (err) {
+    console.error('[fetch-results] Error:', err)
+    return NextResponse.json({ success: false, error: String(err) }, { status: 500 })
+  }
 }
