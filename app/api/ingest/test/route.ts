@@ -54,7 +54,7 @@ export async function GET() {
       top_brand: 'Chivas Regal',
       opportunity_note: 'Lead the aesthetic — Chivas cinematic pour as premium IG content',
       content_angle: 'Ultra slow-mo Chivas pour — moody lighting, no voiceover, pure craft',
-      source_url: 'https://www.instagram.com/reel/C8kL2xMoP4N/',
+      source_url: 'https://www.instagram.com/reels/DP6eEzqDFRk/',
       week_number, year,
     },
     {
@@ -106,7 +106,7 @@ export async function GET() {
       top_brand: 'The Glenlivet',
       opportunity_note: 'Glenlivet gift sets are perfect for this format — luxury unbox moment',
       content_angle: 'Unboxing Glenlivet gift set — tissue paper, card, reaction reveal',
-      source_url: 'https://www.instagram.com/reel/C9pX3kLmN8Q/',
+      source_url: 'https://www.instagram.com/reels/DOJmo2kggl7/',
       week_number, year,
     },
     {
@@ -119,7 +119,7 @@ export async function GET() {
       top_brand: 'Chivas Regal',
       opportunity_note: 'Position Chivas as the drink of Abu Dhabi luxury occasions',
       content_angle: 'Chivas at Abu Dhabi skyline venue — prestige, brotherhood, celebration',
-      source_url: 'https://www.tiktok.com/@crystalvibesofficial/video/7647117749759659271',
+      source_url: 'https://www.tiktok.com/@ww.needs/video/7391425179752074514',
       week_number, year,
     },
     {
@@ -132,7 +132,7 @@ export async function GET() {
       top_brand: 'Absolut Vodka',
       opportunity_note: 'Absolut art direction is a natural — bold colours, expressive pour',
       content_angle: 'Abstract Absolut cocktail art reel — overhead pour, vivid colours',
-      source_url: 'https://www.instagram.com/reel/C6tY4nMoR1S/',
+      source_url: 'https://www.instagram.com/reels/DLXPKXnznuP/',
       week_number, year,
     },
     {
@@ -158,7 +158,7 @@ export async function GET() {
       top_brand: 'Jameson',
       opportunity_note: 'Jameson "everyone welcome" ethos is this trend — own it immediately',
       content_angle: 'Unscripted group toast video — Jameson, friends, zero production value',
-      source_url: 'https://www.instagram.com/reel/C7mN8pQrS2T/',
+      source_url: 'https://www.instagram.com/reels/DRWk5UsDfeR/',
       week_number, year,
     },
     {
@@ -171,7 +171,7 @@ export async function GET() {
       top_brand: 'Jameson',
       opportunity_note: 'Authentic Jameson content — real moments, pub energy, no script',
       content_angle: 'UGC-style Jameson toast reel — messy, warm, real pub atmosphere',
-      source_url: 'https://www.instagram.com/reel/C5sW7mNpQ3T/',
+      source_url: 'https://www.instagram.com/reels/DW5n82ygtbg/',
       week_number, year,
     },
   ]
