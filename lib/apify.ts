@@ -42,12 +42,16 @@ async function runActor(actorId: string, input: Record<string, unknown>): Promis
 }
 
 // ─── TikTok Hashtag Scraper ───────────────────────────────────────────────────
-// Scrapes UAE/nightlife/drinks hashtags and aggregates into trends.
-// Hashtags chosen to cover Pernod Ricard brand territories in the ME market.
+// Cultural lifestyle hashtags — not alcohol-specific.
+// Goal: find what's trending in UAE culture that brands can authentically join.
 const SCRAPE_HASHTAGS = [
-  'dubai', 'abudhabi', 'dubainightlife', 'dubaibar',
-  'cocktails', 'mixology', 'whisky', 'vodka',
+  'dubai', 'abudhabi', 'dubainightlife', 'dubailife',
+  'luxurylifestyle', 'uae', 'dubaievents', 'rooftop',
 ]
+
+// Only posts above this view count feed into trend aggregation.
+// Filters out local/micro creators, keeps only viral-scale content.
+const MIN_POST_VIEWS = 50_000
 
 export async function triggerAllScrapers(): Promise<ActorRunResult[]> {
   const result = await runActor(APIFY_ACTORS.tiktokScraper, {
@@ -197,8 +201,11 @@ export function aggregateHashtagTrends(items: Record<string, unknown>[]): Normal
   const map = new Map<string, Entry>()
 
   for (const item of items) {
-    const hashtags = (item.hashtags as Array<{ name?: string }> | undefined) || []
     const views = safeNum(item.playCount)
+    // Skip low-reach posts — only viral-scale content signals a real trend
+    if (views < MIN_POST_VIEWS) continue
+
+    const hashtags = (item.hashtags as Array<{ name?: string }> | undefined) || []
     const likes = safeNum(item.diggCount)
     const videoId = item.id as string
     const authorName = (item.authorMeta as Record<string, string>)?.name || 'unknown'
@@ -220,7 +227,8 @@ export function aggregateHashtagTrends(items: Record<string, unknown>[]): Normal
 
   const trends: NormalisedTrend[] = []
   for (const entry of Array.from(map.values())) {
-    if (entry.videoCount < 2) continue
+    // Require 3+ high-reach posts before calling it a trend
+    if (entry.videoCount < 3) continue
     const engScore = entry.totalViews + entry.totalLikes * 5
     trends.push({
       platform: 'tiktok', trend_name: `#${entry.name}`, trend_type: 'hashtag',
@@ -238,6 +246,7 @@ export function aggregateAudioTrends(items: Record<string, unknown>[]): Normalis
   const musicMap = new Map<string, AudioEntry>()
 
   for (const item of items) {
+    if (safeNum(item.playCount) < MIN_POST_VIEWS) continue
     const music = (item.musicMeta as Record<string, unknown>) || (item.music as Record<string, unknown>)
     if (!music) continue
     const musicId = (music.musicId as string) || (music.id as string)
@@ -262,7 +271,7 @@ export function aggregateAudioTrends(items: Record<string, unknown>[]): Normalis
 
   const trends: NormalisedTrend[] = []
   for (const audio of Array.from(musicMap.values())) {
-    if (audio.count < 2) continue
+    if (audio.count < 3) continue
     const label = audio.author ? `"${audio.name}" by ${audio.author}` : `"${audio.name}"`
     trends.push({
       platform: 'tiktok', trend_name: label, trend_type: 'audio',
