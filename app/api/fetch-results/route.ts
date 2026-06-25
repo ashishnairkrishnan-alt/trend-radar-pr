@@ -181,20 +181,16 @@ export async function GET(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Debug mode: return first 3 raw items + computed engagement so we can verify field names
+    // Debug mode: dump all keys of first raw item to find real field names
     if (debug) {
       const rawItems = await fetchDatasetItems(targetDatasetId) as Record<string, unknown>[]
-      const sample = rawItems.slice(0, 3).map(item => ({
-        id: item.id,
-        text: (item.text as string)?.slice(0, 80),
-        stats: item.stats,
-        musicMeta: item.musicMeta,
-        hashtags: (item.hashtags as Array<{name?: string}>)?.slice(0, 3),
-        webVideoUrl: item.webVideoUrl,
-        covers: item.covers,
-        computedEngagement: calcEngagement(item),
-      }))
-      return NextResponse.json({ debug: true, total: rawItems.length, sample })
+      const first = rawItems[0] || {}
+      return NextResponse.json({
+        debug: true,
+        total: rawItems.length,
+        firstItemKeys: Object.keys(first),
+        firstItem: first,
+      })
     }
 
     const result = await processTikTokDataset(targetDatasetId)
