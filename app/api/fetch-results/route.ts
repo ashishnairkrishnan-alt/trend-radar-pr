@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { scoreTikTokPost } from '@/lib/scorer'
+import { scoreNormalisedTrend } from '@/lib/scorer'
 import {
   fetchDatasetItems,
-  calcEngagement,
-  normaliseTikTokPost,
-  deriveTrendName,
-  deriveTrendType,
+  aggregateHashtagTrends,
+  aggregateAudioTrends,
 } from '@/lib/apify'
 
 export const maxDuration = 60
 
 const APIFY_BASE = 'https://api.apify.com/v2'
-const MIN_ENGAGEMENT = 1000
 const MAX_TO_SCORE = 12
 
 function getWeekNumber(date: Date): number {
@@ -51,97 +48,72 @@ async function processTikTokDataset(datasetId: string) {
   const year = now.getFullYear()
   const weekDate = getWeekStartDate(now)
 
-  // 1. Fetch raw items from Apify dataset
+  // 1. Fetch raw items
   const rawItems = await fetchDatasetItems(datasetId) as Record<string, unknown>[]
   console.log(`[fetch-results] Fetched ${rawItems.length} raw items`)
 
-  // 2. Normalise + filter by engagement
-  const posts = rawItems
-    .map(item => {
-      const post = normaliseTikTokPost(item)
-      if (!post) return null
-      const eng = calcEngagement(item)
-      if (eng < MIN_ENGAGEMENT) return null
-      return { post, engagementScore: eng }
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null)
-    .sort((a, b) => b.engagementScore - a.engagementScore)
+  // 2. Aggregate into trend clusters (hashtags appearing in 2+ posts, sounds in 2+ posts)
+  const hashtagTrends = aggregateHashtagTrends(rawItems)
+  const audioTrends = aggregateAudioTrends(rawItems)
+  console.log(`[fetch-results] Aggregated: ${hashtagTrends.length} hashtag trends, ${audioTrends.length} audio trends`)
 
-  console.log(`[fetch-results] ${posts.length} posts passed engagement filter (>= ${MIN_ENGAGEMENT})`)
-
-  if (posts.length === 0) return { datasetId, skipped: true, reason: 'No posts passed engagement filter' }
-
-  // 3. Batch dedup — skip source_urls already in scored_trends
-  const candidateUrls = posts.map(p => p.post.webVideoUrl).filter(Boolean) as string[]
-  const { data: existing } = await supabase
-    .from('scored_trends')
-    .select('source_url')
-    .in('source_url', candidateUrls)
-  const existingUrls = new Set((existing || []).map(r => r.source_url))
-
-  const fresh = posts.filter(p => p.post.webVideoUrl && !existingUrls.has(p.post.webVideoUrl))
-  console.log(`[fetch-results] ${fresh.length} posts after dedup (${existingUrls.size} already exist)`)
-
-  if (fresh.length === 0) return { datasetId, skipped: true, reason: 'All posts already scored' }
-
-  // 4. Count music occurrences → save top 3 trending audios
-  const musicCounts = new Map<string, { author: string; count: number }>()
-  for (const { post } of fresh) {
-    const name = post.musicMeta.musicName
-    const author = post.musicMeta.musicAuthor || ''
-    if (name && post.musicMeta.musicOriginal === false) {
-      const existing = musicCounts.get(name)
-      if (existing) existing.count++
-      else musicCounts.set(name, { author, count: 1 })
-    }
-  }
-
-  const topAudio = Array.from(musicCounts.entries())
-    .map(([name, { author, count }]) => ({ name, author, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3)
-
-  for (const audio of topAudio) {
+  // 3. Save top 3 trending audio entries
+  for (const audio of audioTrends.slice(0, 3)) {
+    const raw = audio.raw_data as Record<string, unknown>
     await supabase.from('trending_audio').upsert({
-      music_name: audio.name,
-      music_author: audio.author,
-      post_count: audio.count,
+      music_name: raw.musicName as string,
+      music_author: (raw.musicAuthor as string) || null,
+      post_count: (raw.videoCount as number) || 1,
       week_date: weekDate,
     }, { onConflict: 'music_name,week_date' })
   }
-  console.log(`[fetch-results] Saved ${topAudio.length} trending audio entries`)
 
-  // 5. Score top posts with Claude (cap to avoid timeout)
+  // 4. Merge and sort by engagement, dedup against existing source_urls
+  const allTrends = [...hashtagTrends, ...audioTrends]
+    .sort((a, b) => b.engagement_volume - a.engagement_volume)
+
+  if (allTrends.length === 0) return { datasetId, skipped: true, reason: 'No trends after aggregation (need 2+ posts per hashtag/sound)' }
+
+  const candidateUrls = allTrends.map(t => t.source_url).filter(Boolean)
+  const { data: existingRows } = await supabase
+    .from('scored_trends')
+    .select('source_url')
+    .in('source_url', candidateUrls)
+  const existingUrls = new Set((existingRows || []).map(r => r.source_url))
+  const fresh = allTrends.filter(t => t.source_url && !existingUrls.has(t.source_url))
+  console.log(`[fetch-results] ${fresh.length} fresh trends after dedup`)
+
+  if (fresh.length === 0) return { datasetId, skipped: true, reason: 'All trends already scored' }
+
+  // 5. Score top trends with Claude
   const toScore = fresh.slice(0, MAX_TO_SCORE)
   let scored = 0
 
-  for (const { post, engagementScore } of toScore) {
+  for (const trend of toScore) {
     try {
-      const scores = await scoreTikTokPost(post)
-      const trendName = cleanText(deriveTrendName(post), 100)
-      const trendType = deriveTrendType(post)
-      const sourceUrl = (post.webVideoUrl || '').slice(0, 500)
+      const scores = await scoreNormalisedTrend(trend)
+      const raw = trend.raw_data as Record<string, unknown>
 
       const { error } = await supabase.from('scored_trends').upsert({
-        trend_name: trendName,
-        platform: 'tiktok',
-        trend_type: trendType,
-        emotional_hook: cleanText(post.text, 200),
-        spike_pct: 0,
-        source_url: sourceUrl,
+        trend_name: cleanText(trend.trend_name, 100),
+        platform: trend.platform,
+        trend_type: trend.trend_type,
+        emotional_hook: cleanText(trend.emotional_hook, 200),
+        spike_pct: trend.spike_pct,
+        source_url: trend.source_url.slice(0, 500),
         week_number,
         year,
-        engagement_score: Math.round(engagementScore),
-        music_name: post.musicMeta.musicName || null,
-        music_author: post.musicMeta.musicAuthor || null,
-        music_is_trending: post.musicMeta.musicOriginal === false,
+        engagement_score: Math.round(trend.engagement_volume),
+        music_name: (raw.musicName as string) || null,
+        music_author: (raw.musicAuthor as string) || null,
+        music_is_trending: trend.trend_type === 'audio',
         ...scores,
       }, { onConflict: 'source_url', ignoreDuplicates: true })
 
-      if (error) console.error(`[fetch-results] Upsert error for "${trendName}":`, error.message)
+      if (error) console.error(`[fetch-results] Upsert error for "${trend.trend_name}":`, error.message)
       else scored++
     } catch (err) {
-      console.error(`[fetch-results] Scoring failed for post ${post.id}:`, err)
+      console.error(`[fetch-results] Scoring failed for trend "${trend.trend_name}":`, err)
     }
     await new Promise(r => setTimeout(r, 200))
   }
@@ -149,9 +121,10 @@ async function processTikTokDataset(datasetId: string) {
   return {
     datasetId,
     rawFetched: rawItems.length,
-    passedEngagementFilter: posts.length,
+    hashtagTrends: hashtagTrends.length,
+    audioTrends: audioTrends.length,
     afterDedup: fresh.length,
-    trendingAudioSaved: topAudio.length,
+    trendingAudioSaved: Math.min(audioTrends.length, 3),
     scored,
   }
 }

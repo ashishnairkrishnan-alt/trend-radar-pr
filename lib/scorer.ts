@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createServerClient } from './supabase'
 import type { RawTrend, ClaudeScoreResult, ScoredTrend } from '@/types'
-import type { TikTokPost } from './apify'
+import type { TikTokPost, NormalisedTrend } from './apify'
 
 function getAnthropicClient() {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set')
@@ -75,6 +75,35 @@ Score this TikTok post for all four brands based on cultural territory fit.`
     }
   }
 
+  return parsed
+}
+
+// ─── Aggregated trend scorer (used by fetch-results pipeline) ────────────────
+// Scores a cluster of posts (hashtag or audio) rather than a single post.
+
+export async function scoreNormalisedTrend(trend: NormalisedTrend): Promise<ClaudeScoreResult> {
+  const userMsg = `Trend: ${trend.trend_name}
+Platform: ${trend.platform}
+Type: ${trend.trend_type}
+Emotional hook: ${trend.emotional_hook}
+Engagement volume: ${trend.engagement_volume.toLocaleString()}
+Score this trend for all four brands based on cultural territory fit.`
+
+  const message = await getAnthropicClient().messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 300,
+    system: SCORING_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: userMsg }],
+  })
+
+  const content = message.content[0]
+  if (content.type !== 'text') throw new Error(`Unexpected response type: ${content.type}`)
+  const cleaned = content.text.replace(/```(?:json)?\n?/g, '').trim()
+  const parsed = JSON.parse(cleaned) as ClaudeScoreResult
+  for (const key of ['chivas_score', 'absolut_score', 'jameson_score', 'glenlivet_score'] as const) {
+    const val = parsed[key]
+    if (typeof val !== 'number' || val < 1 || val > 5) throw new Error(`Invalid score for ${key}: ${val}`)
+  }
   return parsed
 }
 
