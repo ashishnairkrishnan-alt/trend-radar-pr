@@ -41,28 +41,25 @@ async function runActor(actorId: string, input: Record<string, unknown>): Promis
   return { actorId, runId: run.id, status: run.status }
 }
 
-// ─── TikTok Trending Feed ─────────────────────────────────────────────────────
-// Uses the global trending feed — no hashtag searches, much cheaper per run.
+// ─── TikTok Hashtag Scraper ───────────────────────────────────────────────────
+// Scrapes UAE/nightlife/drinks hashtags and aggregates into trends.
+// Hashtags chosen to cover Pernod Ricard brand territories in the ME market.
+const SCRAPE_HASHTAGS = [
+  'dubai', 'abudhabi', 'dubainightlife', 'dubaibar',
+  'cocktails', 'mixology', 'whisky', 'vodka',
+]
+
 export async function triggerAllScrapers(): Promise<ActorRunResult[]> {
-  const results: ActorRunResult[] = []
-
-  try {
-    const result = await runActor(APIFY_ACTORS.tiktokScraper, {
-      feedType: 'TRENDING',
-      resultsPerPage: 50,
-      oldestPostDateUnified: '7 days ago',
-      shouldDownloadVideos: false,
-      shouldDownloadCovers: false,
-      shouldDownloadSubtitles: false,
-      shouldDownloadSlideshowImages: false,
-    })
-    results.push(result)
-  } catch (err) {
-    console.error('[apify] TikTok trending scraper failed:', err)
-  }
-
-  console.log(`[apify] Started ${results.length} scraper(s)`)
-  return results
+  const result = await runActor(APIFY_ACTORS.tiktokScraper, {
+    hashtags: SCRAPE_HASHTAGS,
+    resultsPerPage: 20,
+    shouldDownloadVideos: false,
+    shouldDownloadCovers: false,
+    shouldDownloadSubtitles: false,
+    shouldDownloadSlideshowImages: false,
+  })
+  console.log(`[apify] Started scraper: runId=${result.runId}`)
+  return [result]
 }
 
 export async function fetchDatasetItems(datasetId: string): Promise<unknown[]> {
