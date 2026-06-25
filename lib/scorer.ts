@@ -1,26 +1,31 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createServerClient } from './supabase'
 import type { RawTrend, ClaudeScoreResult, ScoredTrend } from '@/types'
+import type { TikTokPost } from './apify'
 
 function getAnthropicClient() {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error('ANTHROPIC_API_KEY is not set')
-  }
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set')
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 }
 
-const SYSTEM_PROMPT = `You are a brand strategist for Pernod Ricard Middle East. You score social media trends for relevance to four spirits brands. You always respond in valid JSON only, no other text.
+// ─── System Prompt ────────────────────────────────────────────────────────────
+// Cultural adjacency scoring — not just "does it mention alcohol" but
+// "what world does this trend live in, and which brand owns that world."
 
-Brands and their identities:
-- Chivas Regal: premium, sophisticated, slow moments, success, gifting, brotherhood
-- Absolut Vodka: bold, creative, artistic, expressive, inclusive, party
-- Jameson: social, relaxed, approachable, everyone's welcome, Irish warmth
-- The Glenlivet: pioneering, single malt scotch, smooth, approachable luxury, nature, discovery
+export const SCORING_SYSTEM_PROMPT = `You are a brand strategist for Pernod Ricard Middle East. You score social media trends for four spirits brands. You always respond in valid JSON only, no other text.
 
-For each trend, evaluate:
-1. Can this trend carry a spirits or nightlife narrative?
-2. Which brand does the emotional tone match best?
-3. What is the best content format angle?
+Brand cultural territories:
+- Chivas Regal: luxury achievement, cinematic drama, prestige occasions, Ferrari energy, rooftop moments, gifting, brotherhood, slow success
+- Absolut Vodka: bold creativity, art, nightlife, electronic music, self-expression, inclusive parties, urban culture, bold aesthetics
+- Jameson: live music, festivals, indie culture, pub warmth, laid-back social energy, everyone welcome, Irish spirit, approachable fun
+- The Glenlivet: nature, outdoor discovery, ambient sounds, quiet exploration, single malt craft, unhurried appreciation, Scotland, refinement
+
+Scoring rules:
+1. Score 1-5 based on how well the trend's cultural world overlaps with each brand's territory
+2. A luxury car trend scores high for Chivas (prestige world), not just drinks content
+3. A music festival trend scores high for Jameson (live music world), not just bar content
+4. Score 4-5 only if the brand could authentically own this content space
+5. top_brand must be one of: "Chivas Regal", "Absolut Vodka", "Jameson", "The Glenlivet"
 
 Return JSON in exactly this format:
 {
@@ -29,9 +34,63 @@ Return JSON in exactly this format:
   "jameson_score": number 1-5,
   "glenlivet_score": number 1-5,
   "top_brand": string,
-  "opportunity_note": string (max 20 words, what the brand should do),
-  "content_angle": string (max 15 words, the specific reel or post format)
+  "opportunity_note": string (max 20 words — specific action the brand should take),
+  "content_angle": string (max 15 words — the exact reel or post format)
 }`
+
+// ─── Rich TikTok post scoring (trending feed pipeline) ───────────────────────
+
+export async function scoreTikTokPost(post: TikTokPost): Promise<ClaudeScoreResult> {
+  const client = getAnthropicClient()
+
+  const hashtags = post.hashtags.map(h => `#${h.name}`).join(' ')
+  const music = post.musicMeta
+  const musicLine = music.musicName
+    ? `Music: "${music.musicName}"${music.musicAuthor ? ` by ${music.musicAuthor}` : ''} (original track: ${music.musicOriginal ? 'yes' : 'no'})`
+    : 'Music: none'
+
+  const textContent = `Caption: ${post.text || '(no caption)'}
+Hashtags: ${hashtags || '(none)'}
+${musicLine}
+Engagement: ${post.stats.playCount.toLocaleString()} views, ${post.stats.diggCount.toLocaleString()} likes, ${post.stats.commentCount.toLocaleString()} comments, ${post.stats.shareCount.toLocaleString()} shares
+
+Score this TikTok post for all four brands based on cultural territory fit.`
+
+  // Build message content — Vision URL if cover available, text always
+  const coverUrl = post.covers?.originCover || post.covers?.default
+  type ContentBlock =
+    | { type: 'image'; source: { type: 'url'; url: string } }
+    | { type: 'text'; text: string }
+
+  const content: ContentBlock[] = []
+  if (coverUrl && coverUrl.startsWith('https')) {
+    content.push({ type: 'image', source: { type: 'url', url: coverUrl } })
+  }
+  content.push({ type: 'text', text: textContent })
+
+  const message = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 300,
+    system: SCORING_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content }],
+  })
+
+  const text = message.content[0].type === 'text' ? message.content[0].text : ''
+  const cleaned = text.replace(/```(?:json)?\n?/g, '').trim()
+  const parsed = JSON.parse(cleaned) as ClaudeScoreResult
+
+  // Validate scores
+  for (const key of ['chivas_score', 'absolut_score', 'jameson_score', 'glenlivet_score'] as const) {
+    const val = parsed[key]
+    if (typeof val !== 'number' || val < 1 || val > 5) {
+      throw new Error(`Invalid score for ${key}: ${val}`)
+    }
+  }
+
+  return parsed
+}
+
+// ─── Legacy batch scorer (used by /api/ingest webhook route) ─────────────────
 
 function buildUserMessage(trend: RawTrend): string {
   return `Trend: ${trend.trend_name}
@@ -51,47 +110,24 @@ function getWeekNumber(date: Date): number {
 }
 
 async function scoreSingleTrend(trend: RawTrend): Promise<ClaudeScoreResult> {
-  console.log(`[scorer] Scoring trend: "${trend.trend_name}" (${trend.platform})`)
-
   const message = await getAnthropicClient().messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 512,
-    system: SYSTEM_PROMPT,
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 300,
+    system: SCORING_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: buildUserMessage(trend) }],
   })
 
   const content = message.content[0]
-  if (content.type !== 'text') {
-    throw new Error(`Unexpected Claude response type: ${content.type}`)
+  if (content.type !== 'text') throw new Error(`Unexpected Claude response type: ${content.type}`)
+
+  const cleaned = content.text.replace(/```(?:json)?\n?/g, '').trim()
+  const parsed = JSON.parse(cleaned) as ClaudeScoreResult
+
+  for (const key of ['chivas_score', 'absolut_score', 'jameson_score', 'glenlivet_score'] as const) {
+    const val = parsed[key]
+    if (typeof val !== 'number' || val < 1 || val > 5) throw new Error(`Invalid score for ${key}: ${val}`)
   }
 
-  let parsed: ClaudeScoreResult
-  try {
-    // Strip markdown code fences if present
-    const cleaned = content.text.replace(/```(?:json)?\n?/g, '').trim()
-    parsed = JSON.parse(cleaned)
-  } catch (err) {
-    console.error('[scorer] Failed to parse Claude response:', content.text)
-    throw new Error(`Claude returned invalid JSON: ${err}`)
-  }
-
-  // Validate scores are 1-5
-  const scores: (keyof ClaudeScoreResult)[] = [
-    'chivas_score',
-    'absolut_score',
-    'jameson_score',
-    'glenlivet_score',
-  ]
-  for (const key of scores) {
-    const val = parsed[key] as number
-    if (typeof val !== 'number' || val < 1 || val > 5) {
-      throw new Error(`Invalid score for ${key}: ${val}`)
-    }
-  }
-
-  console.log(
-    `[scorer] Scored "${trend.trend_name}": top_brand=${parsed.top_brand}, scores=[${parsed.chivas_score},${parsed.absolut_score},${parsed.jameson_score},${parsed.glenlivet_score}]`
-  )
   return parsed
 }
 
@@ -106,7 +142,6 @@ export async function scoreTrendBatch(rawTrends: RawTrend[]): Promise<void> {
   for (const trend of rawTrends) {
     try {
       const scores = await scoreSingleTrend(trend)
-
       const scoredRow: Omit<ScoredTrend, 'id' | 'created_at'> = {
         raw_trend_id: trend.id,
         trend_name: trend.trend_name,
@@ -120,53 +155,29 @@ export async function scoreTrendBatch(rawTrends: RawTrend[]): Promise<void> {
         year,
       }
 
-      const { error: insertError } = await supabase
-        .from('scored_trends')
-        .insert(scoredRow)
+      const { error } = await supabase.from('scored_trends').upsert(scoredRow, {
+        onConflict: 'source_url',
+        ignoreDuplicates: true,
+      })
+      if (error) console.error(`[scorer] Failed to upsert "${trend.trend_name}":`, error)
 
-      if (insertError) {
-        console.error(`[scorer] Failed to insert scored trend "${trend.trend_name}":`, insertError)
-        continue
-      }
-
-      // Mark raw trend as processed
-      const { error: updateError } = await supabase
-        .from('raw_trends')
-        .update({ processed: true })
-        .eq('id', trend.id)
-
-      if (updateError) {
-        console.error(`[scorer] Failed to mark raw trend processed "${trend.id}":`, updateError)
-      }
-
-      // Small delay to avoid hitting Claude rate limits
-      await new Promise((r) => setTimeout(r, 300))
+      await supabase.from('raw_trends').update({ processed: true }).eq('id', trend.id)
+      await new Promise(r => setTimeout(r, 300))
     } catch (err) {
       console.error(`[scorer] Error processing trend "${trend.trend_name}":`, err)
     }
   }
 
-  console.log(`[scorer] Batch complete`)
+  console.log('[scorer] Batch complete')
 }
 
 export async function scoreUnprocessedTrends(): Promise<number> {
   const supabase = createServerClient()
-
   const { data: unprocessed, error } = await supabase
-    .from('raw_trends')
-    .select('*')
-    .eq('processed', false)
-    .order('created_at', { ascending: true })
+    .from('raw_trends').select('*').eq('processed', false).order('created_at', { ascending: true })
 
-  if (error) {
-    console.error('[scorer] Failed to fetch unprocessed trends:', error)
-    throw error
-  }
-
-  if (!unprocessed || unprocessed.length === 0) {
-    console.log('[scorer] No unprocessed trends found')
-    return 0
-  }
+  if (error) throw error
+  if (!unprocessed || unprocessed.length === 0) return 0
 
   await scoreTrendBatch(unprocessed as RawTrend[])
   return unprocessed.length

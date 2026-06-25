@@ -33,6 +33,19 @@ export interface ScoredTrend {
   source_url?: string
   week_number: number
   year: number
+  engagement_score?: number
+  music_name?: string
+  music_author?: string
+  music_is_trending?: boolean
+  created_at: string
+}
+
+export interface TrendingAudio {
+  id: string
+  music_name: string
+  music_author?: string
+  post_count: number
+  week_date: string
   created_at: string
 }
 

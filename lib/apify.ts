@@ -1,4 +1,4 @@
-import { APIFY_ACTORS, KEYWORD_CLUSTERS } from './config'
+import { APIFY_ACTORS } from './config'
 
 const APIFY_BASE = 'https://api.apify.com/v2'
 
@@ -41,36 +41,27 @@ async function runActor(actorId: string, input: Record<string, unknown>): Promis
   return { actorId, runId: run.id, status: run.status }
 }
 
+// ─── TikTok Trending Feed ─────────────────────────────────────────────────────
+// Uses the global trending feed — no hashtag searches, much cheaper per run.
 export async function triggerAllScrapers(): Promise<ActorRunResult[]> {
-  const allKeywords = Object.values(KEYWORD_CLUSTERS).flat()
   const results: ActorRunResult[] = []
 
   try {
-    const tiktokResult = await runActor(APIFY_ACTORS.tiktokScraper, {
-      hashtags: allKeywords,
-      resultsPerPage: 10,
+    const result = await runActor(APIFY_ACTORS.tiktokScraper, {
+      feedType: 'TRENDING',
+      resultsPerPage: 50,
+      oldestPostDateUnified: '7 days ago',
       shouldDownloadVideos: false,
       shouldDownloadCovers: false,
       shouldDownloadSubtitles: false,
       shouldDownloadSlideshowImages: false,
     })
-    results.push(tiktokResult)
+    results.push(result)
   } catch (err) {
-    console.error('[apify] TikTok scraper failed:', err)
+    console.error('[apify] TikTok trending scraper failed:', err)
   }
 
-  try {
-    const igHashtagResult = await runActor(APIFY_ACTORS.instagramHashtag, {
-      hashtags: allKeywords,
-      resultsLimit: 10,
-      scrapeType: 'posts',
-    })
-    results.push(igHashtagResult)
-  } catch (err) {
-    console.error('[apify] Instagram hashtag scraper failed:', err)
-  }
-
-  console.log(`[apify] Started ${results.length}/2 scrapers`)
+  console.log(`[apify] Started ${results.length} scraper(s)`)
   return results
 }
 
@@ -97,25 +88,116 @@ export interface NormalisedTrend {
   raw_data: Record<string, unknown>
 }
 
+export interface TikTokPost {
+  id: string
+  text: string
+  hashtags: Array<{ name: string; title?: string }>
+  musicMeta: {
+    musicId?: string
+    musicName?: string
+    musicAuthor?: string
+    musicOriginal?: boolean
+  }
+  stats: {
+    diggCount: number
+    commentCount: number
+    shareCount: number
+    playCount: number
+  }
+  authorMeta: { name: string; nickName?: string }
+  webVideoUrl?: string
+  covers?: { default?: string; originCover?: string }
+  createTime?: number
+}
+
+// ─── Engagement Scoring ───────────────────────────────────────────────────────
+
+export function calcEngagement(item: Record<string, unknown>): number {
+  const stats = (item.stats as Record<string, number>) || {}
+  const likes = Number(stats.diggCount) || 0
+  const comments = Number(stats.commentCount) || 0
+  const shares = Number(stats.shareCount) || 0
+  const views = Number(stats.playCount) || 0
+  return (likes * 1) + (comments * 2) + (shares * 3) + (views / 1000)
+}
+
+// ─── TikTok Post Normalisation ────────────────────────────────────────────────
+// Maps a raw trending-feed item to the shape used by the scoring pipeline.
+
+export function normaliseTikTokPost(item: Record<string, unknown>): TikTokPost | null {
+  try {
+    const id = item.id as string
+    if (!id) return null
+
+    const stats = (item.stats as Record<string, number>) || {}
+    const authorMeta = (item.authorMeta as Record<string, string>) || {}
+    const musicMeta = (item.musicMeta as Record<string, unknown>) || {}
+    const hashtags = (item.hashtags as Array<{ name?: string; title?: string }> | undefined) || []
+    const covers = (item.covers as Record<string, string>) || {}
+
+    const videoUrl =
+      (item.webVideoUrl as string) ||
+      (id && authorMeta.name ? `https://www.tiktok.com/@${authorMeta.name}/video/${id}` : '')
+
+    return {
+      id,
+      text: ((item.text as string) || '').slice(0, 300),
+      hashtags: hashtags.filter(h => h.name).map(h => ({ name: h.name!, title: h.title })),
+      musicMeta: {
+        musicId: musicMeta.musicId as string,
+        musicName: musicMeta.musicName as string,
+        musicAuthor: musicMeta.musicAuthor as string,
+        musicOriginal: musicMeta.musicOriginal as boolean,
+      },
+      stats: {
+        diggCount: Number(stats.diggCount) || 0,
+        commentCount: Number(stats.commentCount) || 0,
+        shareCount: Number(stats.shareCount) || 0,
+        playCount: Number(stats.playCount) || 0,
+      },
+      authorMeta: {
+        name: authorMeta.name || 'unknown',
+        nickName: authorMeta.nickName,
+      },
+      webVideoUrl: videoUrl,
+      covers: {
+        default: covers.default,
+        originCover: covers.originCover,
+      },
+    }
+  } catch {
+    return null
+  }
+}
+
+// ─── Trend name + type derivation ─────────────────────────────────────────────
+
+export function deriveTrendName(post: TikTokPost): string {
+  const music = post.musicMeta
+  if (music.musicOriginal === false && music.musicName) {
+    return music.musicAuthor
+      ? `"${music.musicName}" by ${music.musicAuthor}`
+      : `"${music.musicName}"`
+  }
+  if (post.hashtags.length > 0) return `#${post.hashtags[0].name}`
+  return post.text.slice(0, 60) || 'Trending video'
+}
+
+export function deriveTrendType(post: TikTokPost): 'audio' | 'hashtag' | 'format' {
+  if (post.musicMeta.musicOriginal === false && post.musicMeta.musicName) return 'audio'
+  if (post.hashtags.length > 0) return 'hashtag'
+  return 'format'
+}
+
+// ─── Legacy aggregation helpers (used by webhook ingest route) ────────────────
+
 function safeNum(val: unknown, fallback = 0): number {
   const n = Number(val)
   return isFinite(n) ? n : fallback
 }
 
-// ─── TikTok: aggregate videos by hashtag ────────────────────────────────────
-// clockworks/tiktok-scraper returns individual videos.
-// We group them by hashtag and rank by total views + like count.
 export function aggregateHashtagTrends(items: Record<string, unknown>[]): NormalisedTrend[] {
-  type Entry = {
-    name: string
-    videoCount: number
-    totalViews: number
-    totalLikes: number
-    bestUrl: string
-    bestViews: number
-    bestCaption: string
-  }
-
+  type Entry = { name: string; videoCount: number; totalViews: number; totalLikes: number; bestUrl: string; bestViews: number; bestCaption: string }
   const map = new Map<string, Entry>()
 
   for (const item of items) {
@@ -123,38 +205,20 @@ export function aggregateHashtagTrends(items: Record<string, unknown>[]): Normal
     const stats = item.stats as Record<string, number> | undefined
     const views = safeNum(stats?.playCount)
     const likes = safeNum(stats?.diggCount)
-
     const videoId = item.id as string
     const authorName = (item.authorMeta as Record<string, string>)?.name || 'unknown'
-    const videoUrl =
-      (item.webVideoUrl as string) ||
-      (videoId ? `https://www.tiktok.com/@${authorName}/video/${videoId}` : '')
+    const videoUrl = (item.webVideoUrl as string) || (videoId ? `https://www.tiktok.com/@${authorName}/video/${videoId}` : '')
     const caption = ((item.text as string) || '').slice(0, 200)
 
     for (const tag of hashtags) {
       const name = tag.name?.toLowerCase().trim()
       if (!name || name.length < 2) continue
-
       const existing = map.get(name)
       if (existing) {
-        existing.videoCount++
-        existing.totalViews += views
-        existing.totalLikes += likes
-        if (views > existing.bestViews) {
-          existing.bestViews = views
-          existing.bestUrl = videoUrl
-          existing.bestCaption = caption
-        }
+        existing.videoCount++; existing.totalViews += views; existing.totalLikes += likes
+        if (views > existing.bestViews) { existing.bestViews = views; existing.bestUrl = videoUrl; existing.bestCaption = caption }
       } else {
-        map.set(name, {
-          name,
-          videoCount: 1,
-          totalViews: views,
-          totalLikes: likes,
-          bestUrl: videoUrl,
-          bestViews: views,
-          bestCaption: caption,
-        })
+        map.set(name, { name, videoCount: 1, totalViews: views, totalLikes: likes, bestUrl: videoUrl, bestViews: views, bestCaption: caption })
       }
     }
   }
@@ -162,43 +226,27 @@ export function aggregateHashtagTrends(items: Record<string, unknown>[]): Normal
   const trends: NormalisedTrend[] = []
   for (const entry of Array.from(map.values())) {
     if (entry.videoCount < 2) continue
-    const engagementScore = entry.totalViews + entry.totalLikes * 5
+    const engScore = entry.totalViews + entry.totalLikes * 5
     trends.push({
-      platform: 'tiktok',
-      trend_name: `#${entry.name}`,
-      trend_type: 'hashtag',
+      platform: 'tiktok', trend_name: `#${entry.name}`, trend_type: 'hashtag',
       emotional_hook: entry.bestCaption || `#${entry.name} trending on TikTok`,
-      engagement_volume: engagementScore,
-      spike_pct: Math.min(Math.round(entry.videoCount * 25 + engagementScore / 10000), 999),
-      source_url: entry.bestUrl,
-      raw_data: { videoCount: entry.videoCount, totalViews: entry.totalViews, totalLikes: entry.totalLikes },
+      engagement_volume: engScore,
+      spike_pct: Math.min(Math.round(entry.videoCount * 25 + engScore / 10000), 999),
+      source_url: entry.bestUrl, raw_data: { videoCount: entry.videoCount, totalViews: entry.totalViews },
     })
   }
-
   return trends.sort((a, b) => b.engagement_volume - a.engagement_volume).slice(0, 8)
 }
 
-// ─── TikTok: aggregate trending audio ───────────────────────────────────────
-// Music appearing in 2+ videos is considered trending.
 export function aggregateAudioTrends(items: Record<string, unknown>[]): NormalisedTrend[] {
-  type AudioEntry = {
-    name: string
-    author: string
-    count: number
-    totalViews: number
-    bestVideoUrl: string
-    bestVideoViews: number
-  }
+  type AudioEntry = { name: string; author: string; count: number; totalViews: number; bestVideoUrl: string; bestVideoViews: number }
   const musicMap = new Map<string, AudioEntry>()
 
   for (const item of items) {
-    // clockworks/tiktok-scraper uses musicMeta
     const music = (item.musicMeta as Record<string, unknown>) || (item.music as Record<string, unknown>)
     if (!music) continue
-
     const musicId = (music.musicId as string) || (music.id as string)
     if (!musicId) continue
-
     const musicName = (music.musicName as string) || (music.title as string) || ''
     const musicAuthor = (music.musicAuthor as string) || (music.authorName as string) || ''
     if (!musicName) continue
@@ -207,27 +255,14 @@ export function aggregateAudioTrends(items: Record<string, unknown>[]): Normalis
     const views = safeNum(stats?.playCount)
     const videoId = item.id as string
     const authorName = (item.authorMeta as Record<string, string>)?.name || 'unknown'
-    const videoUrl =
-      (item.webVideoUrl as string) ||
-      (videoId ? `https://www.tiktok.com/@${authorName}/video/${videoId}` : '')
+    const videoUrl = (item.webVideoUrl as string) || (videoId ? `https://www.tiktok.com/@${authorName}/video/${videoId}` : '')
 
     const existing = musicMap.get(musicId)
     if (existing) {
-      existing.count++
-      existing.totalViews += views
-      if (views > existing.bestVideoViews) {
-        existing.bestVideoViews = views
-        existing.bestVideoUrl = videoUrl
-      }
+      existing.count++; existing.totalViews += views
+      if (views > existing.bestVideoViews) { existing.bestVideoViews = views; existing.bestVideoUrl = videoUrl }
     } else {
-      musicMap.set(musicId, {
-        name: musicName,
-        author: musicAuthor,
-        count: 1,
-        totalViews: views,
-        bestVideoUrl: videoUrl,
-        bestVideoViews: views,
-      })
+      musicMap.set(musicId, { name: musicName, author: musicAuthor, count: 1, totalViews: views, bestVideoUrl: videoUrl, bestVideoViews: views })
     }
   }
 
@@ -236,33 +271,17 @@ export function aggregateAudioTrends(items: Record<string, unknown>[]): Normalis
     if (audio.count < 2) continue
     const label = audio.author ? `"${audio.name}" by ${audio.author}` : `"${audio.name}"`
     trends.push({
-      platform: 'tiktok',
-      trend_name: label,
-      trend_type: 'audio',
+      platform: 'tiktok', trend_name: label, trend_type: 'audio',
       emotional_hook: `Trending audio used in ${audio.count} videos — ${audio.totalViews.toLocaleString()} total views`,
-      engagement_volume: audio.totalViews,
-      spike_pct: Math.min(audio.count * 15, 500),
-      source_url: audio.bestVideoUrl,
-      raw_data: { musicName: audio.name, musicAuthor: audio.author, videoCount: audio.count },
+      engagement_volume: audio.totalViews, spike_pct: Math.min(audio.count * 15, 500),
+      source_url: audio.bestVideoUrl, raw_data: { musicName: audio.name, musicAuthor: audio.author, videoCount: audio.count },
     })
   }
-
   return trends.sort((a, b) => b.spike_pct - a.spike_pct).slice(0, 4)
 }
 
-// ─── Instagram: aggregate posts by hashtag ───────────────────────────────────
-// apify/instagram-hashtag-scraper returns individual posts.
-// We group by hashtags found in captions and rank by total engagement.
 export function aggregateInstagramHashtagTrends(items: Record<string, unknown>[]): NormalisedTrend[] {
-  type Entry = {
-    name: string
-    postCount: number
-    totalEngagement: number
-    bestUrl: string
-    bestEngagement: number
-    bestCaption: string
-  }
-
+  type Entry = { name: string; postCount: number; totalEngagement: number; bestUrl: string; bestEngagement: number; bestCaption: string }
   const map = new Map<string, Entry>()
 
   for (const item of items) {
@@ -270,38 +289,19 @@ export function aggregateInstagramHashtagTrends(items: Record<string, unknown>[]
     const comments = safeNum(item.commentsCount)
     const views = safeNum(item.videoViewCount)
     const engagement = likes + comments * 3 + views
-
     const shortCode = item.shortCode as string
-    const postUrl =
-      (item.url as string) ||
-      (shortCode ? `https://www.instagram.com/p/${shortCode}/` : '')
+    const postUrl = (item.url as string) || (shortCode ? `https://www.instagram.com/p/${shortCode}/` : '')
     const caption = ((item.caption as string) || '').slice(0, 200)
-
-    // Hashtags come as array of strings or objects
     const rawTags = (item.hashtags as unknown[]) || []
-    const tags: string[] = rawTags.map(t =>
-      typeof t === 'string' ? t.toLowerCase().replace('#', '') : String(t).toLowerCase()
-    ).filter(t => t.length > 1)
+    const tags = rawTags.map(t => typeof t === 'string' ? t.toLowerCase().replace('#', '') : String(t).toLowerCase()).filter(t => t.length > 1)
 
     for (const name of tags) {
       const existing = map.get(name)
       if (existing) {
-        existing.postCount++
-        existing.totalEngagement += engagement
-        if (engagement > existing.bestEngagement) {
-          existing.bestEngagement = engagement
-          existing.bestUrl = postUrl
-          existing.bestCaption = caption
-        }
+        existing.postCount++; existing.totalEngagement += engagement
+        if (engagement > existing.bestEngagement) { existing.bestEngagement = engagement; existing.bestUrl = postUrl; existing.bestCaption = caption }
       } else {
-        map.set(name, {
-          name,
-          postCount: 1,
-          totalEngagement: engagement,
-          bestUrl: postUrl,
-          bestEngagement: engagement,
-          bestCaption: caption,
-        })
+        map.set(name, { name, postCount: 1, totalEngagement: engagement, bestUrl: postUrl, bestEngagement: engagement, bestCaption: caption })
       }
     }
   }
@@ -310,82 +310,51 @@ export function aggregateInstagramHashtagTrends(items: Record<string, unknown>[]
   for (const entry of Array.from(map.values())) {
     if (entry.postCount < 2) continue
     trends.push({
-      platform: 'instagram',
-      trend_name: `#${entry.name}`,
-      trend_type: 'hashtag',
+      platform: 'instagram', trend_name: `#${entry.name}`, trend_type: 'hashtag',
       emotional_hook: entry.bestCaption || `#${entry.name} trending on Instagram`,
-      engagement_volume: entry.totalEngagement,
-      spike_pct: Math.min(Math.round(entry.totalEngagement / 500), 999),
-      source_url: entry.bestUrl,
-      raw_data: { postCount: entry.postCount, totalEngagement: entry.totalEngagement },
+      engagement_volume: entry.totalEngagement, spike_pct: Math.min(Math.round(entry.totalEngagement / 500), 999),
+      source_url: entry.bestUrl, raw_data: { postCount: entry.postCount, totalEngagement: entry.totalEngagement },
     })
   }
-
   return trends.sort((a, b) => b.engagement_volume - a.engagement_volume).slice(0, 8)
 }
 
-// Legacy single-item normalisers kept for the webhook-based ingest route
 export function normaliseTikTokItem(item: Record<string, unknown>): NormalisedTrend | null {
   try {
     const hashtags = (item.hashtags as Array<{ name?: string }> | undefined) || []
     const firstTag = hashtags[0]?.name
     const trend_name = firstTag ? `#${firstTag}` : ((item.text as string)?.slice(0, 60) || '')
     if (!trend_name) return null
-
     const stats = item.stats as Record<string, number> | undefined
     const views = safeNum(stats?.playCount)
     const likes = safeNum(stats?.diggCount)
-
     const videoId = item.id as string
     const authorName = (item.authorMeta as Record<string, string>)?.name || 'unknown'
-    const sourceUrl =
-      (item.webVideoUrl as string) ||
-      (videoId ? `https://www.tiktok.com/@${authorName}/video/${videoId}` : '')
-
+    const sourceUrl = (item.webVideoUrl as string) || (videoId ? `https://www.tiktok.com/@${authorName}/video/${videoId}` : '')
     return {
-      platform: 'tiktok',
-      trend_name,
-      trend_type: item.musicMeta ? 'audio' : 'hashtag',
+      platform: 'tiktok', trend_name, trend_type: item.musicMeta ? 'audio' : 'hashtag',
       emotional_hook: ((item.text as string) || '').slice(0, 120) || 'Trending on TikTok',
-      engagement_volume: views + likes,
-      spike_pct: safeNum(typeof item.growthRate === 'number' ? (item.growthRate as number) * 100 : 0),
-      source_url: sourceUrl,
-      raw_data: {},
+      engagement_volume: views + likes, spike_pct: safeNum(typeof item.growthRate === 'number' ? (item.growthRate as number) * 100 : 0),
+      source_url: sourceUrl, raw_data: {},
     }
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 export function normaliseInstagramItem(item: Record<string, unknown>): NormalisedTrend | null {
   try {
     const rawTags = (item.hashtags as unknown[]) || []
     const firstTag = rawTags[0]
-    const trend_name = firstTag
-      ? `#${String(firstTag).toLowerCase().replace('#', '')}`
-      : ((item.ownerUsername as string) || '')
+    const trend_name = firstTag ? `#${String(firstTag).toLowerCase().replace('#', '')}` : ((item.ownerUsername as string) || '')
     if (!trend_name) return null
-
     const likes = safeNum(item.likesCount)
     const comments = safeNum(item.commentsCount)
     const views = safeNum(item.videoViewCount)
-
     const shortCode = item.shortCode as string
-    const sourceUrl =
-      (item.url as string) ||
-      (shortCode ? `https://www.instagram.com/p/${shortCode}/` : '')
-
+    const sourceUrl = (item.url as string) || (shortCode ? `https://www.instagram.com/p/${shortCode}/` : '')
     return {
-      platform: 'instagram',
-      trend_name,
-      trend_type: item.isVideo ? 'format' : 'hashtag',
+      platform: 'instagram', trend_name, trend_type: item.isVideo ? 'format' : 'hashtag',
       emotional_hook: ((item.caption as string) || '').slice(0, 120) || 'Trending on Instagram',
-      engagement_volume: likes + comments + views,
-      spike_pct: 0,
-      source_url: sourceUrl,
-      raw_data: {},
+      engagement_volume: likes + comments + views, spike_pct: 0, source_url: sourceUrl, raw_data: {},
     }
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
