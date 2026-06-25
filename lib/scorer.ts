@@ -56,23 +56,11 @@ Engagement: ${post.stats.playCount.toLocaleString()} views, ${post.stats.diggCou
 
 Score this TikTok post for all four brands based on cultural territory fit.`
 
-  // Build message content — Vision URL if cover available, text always
-  const coverUrl = post.covers?.originCover || post.covers?.default
-  type ContentBlock =
-    | { type: 'image'; source: { type: 'url'; url: string } }
-    | { type: 'text'; text: string }
-
-  const content: ContentBlock[] = []
-  if (coverUrl && coverUrl.startsWith('https')) {
-    content.push({ type: 'image', source: { type: 'url', url: coverUrl } })
-  }
-  content.push({ type: 'text', text: textContent })
-
   const message = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 300,
     system: SCORING_SYSTEM_PROMPT,
-    messages: [{ role: 'user', content }],
+    messages: [{ role: 'user', content: textContent }],
   })
 
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
