@@ -113,11 +113,11 @@ export interface TikTokPost {
 // ─── Engagement Scoring ───────────────────────────────────────────────────────
 
 export function calcEngagement(item: Record<string, unknown>): number {
-  const stats = (item.stats as Record<string, number>) || {}
-  const likes = Number(stats.diggCount) || 0
-  const comments = Number(stats.commentCount) || 0
-  const shares = Number(stats.shareCount) || 0
-  const views = Number(stats.playCount) || 0
+  // Trending-feed schema: stats are top-level, not nested under item.stats
+  const likes = Number(item.diggCount) || 0
+  const comments = Number(item.commentCount) || 0
+  const shares = Number(item.shareCount) || 0
+  const views = Number(item.playCount) || 0
   return (likes * 1) + (comments * 2) + (shares * 3) + (views / 1000)
 }
 
@@ -129,11 +129,10 @@ export function normaliseTikTokPost(item: Record<string, unknown>): TikTokPost |
     const id = item.id as string
     if (!id) return null
 
-    const stats = (item.stats as Record<string, number>) || {}
     const authorMeta = (item.authorMeta as Record<string, string>) || {}
     const musicMeta = (item.musicMeta as Record<string, unknown>) || {}
     const hashtags = (item.hashtags as Array<{ name?: string; title?: string }> | undefined) || []
-    const covers = (item.covers as Record<string, string>) || {}
+    const videoMeta = (item.videoMeta as Record<string, string>) || {}
 
     const videoUrl =
       (item.webVideoUrl as string) ||
@@ -150,10 +149,10 @@ export function normaliseTikTokPost(item: Record<string, unknown>): TikTokPost |
         musicOriginal: musicMeta.musicOriginal as boolean,
       },
       stats: {
-        diggCount: Number(stats.diggCount) || 0,
-        commentCount: Number(stats.commentCount) || 0,
-        shareCount: Number(stats.shareCount) || 0,
-        playCount: Number(stats.playCount) || 0,
+        diggCount: Number(item.diggCount) || 0,
+        commentCount: Number(item.commentCount) || 0,
+        shareCount: Number(item.shareCount) || 0,
+        playCount: Number(item.playCount) || 0,
       },
       authorMeta: {
         name: authorMeta.name || 'unknown',
@@ -161,8 +160,8 @@ export function normaliseTikTokPost(item: Record<string, unknown>): TikTokPost |
       },
       webVideoUrl: videoUrl,
       covers: {
-        default: covers.default,
-        originCover: covers.originCover,
+        default: videoMeta.coverUrl,
+        originCover: videoMeta.originalCoverUrl,
       },
     }
   } catch {
@@ -202,9 +201,8 @@ export function aggregateHashtagTrends(items: Record<string, unknown>[]): Normal
 
   for (const item of items) {
     const hashtags = (item.hashtags as Array<{ name?: string }> | undefined) || []
-    const stats = item.stats as Record<string, number> | undefined
-    const views = safeNum(stats?.playCount)
-    const likes = safeNum(stats?.diggCount)
+    const views = safeNum(item.playCount)
+    const likes = safeNum(item.diggCount)
     const videoId = item.id as string
     const authorName = (item.authorMeta as Record<string, string>)?.name || 'unknown'
     const videoUrl = (item.webVideoUrl as string) || (videoId ? `https://www.tiktok.com/@${authorName}/video/${videoId}` : '')
@@ -251,8 +249,7 @@ export function aggregateAudioTrends(items: Record<string, unknown>[]): Normalis
     const musicAuthor = (music.musicAuthor as string) || (music.authorName as string) || ''
     if (!musicName) continue
 
-    const stats = item.stats as Record<string, number> | undefined
-    const views = safeNum(stats?.playCount)
+    const views = safeNum(item.playCount)
     const videoId = item.id as string
     const authorName = (item.authorMeta as Record<string, string>)?.name || 'unknown'
     const videoUrl = (item.webVideoUrl as string) || (videoId ? `https://www.tiktok.com/@${authorName}/video/${videoId}` : '')

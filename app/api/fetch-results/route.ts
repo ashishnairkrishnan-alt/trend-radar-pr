@@ -162,7 +162,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const runId = searchParams.get('run')
   const datasetId = searchParams.get('tt_dataset') || searchParams.get('tiktok')
-  const debug = searchParams.get('debug') === '1'
 
   try {
     let targetDatasetId = datasetId
@@ -179,18 +178,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         error: 'Pass ?tt_dataset=DATASET_ID or ?run=RUN_ID'
       }, { status: 400 })
-    }
-
-    // Debug mode: dump all keys of first raw item to find real field names
-    if (debug) {
-      const rawItems = await fetchDatasetItems(targetDatasetId) as Record<string, unknown>[]
-      const first = rawItems[0] || {}
-      return NextResponse.json({
-        debug: true,
-        total: rawItems.length,
-        firstItemKeys: Object.keys(first),
-        firstItem: first,
-      })
     }
 
     const result = await processTikTokDataset(targetDatasetId)
