@@ -52,7 +52,7 @@ const SCRAPE_HASHTAGS = [
 export async function triggerAllScrapers(): Promise<ActorRunResult[]> {
   const result = await runActor(APIFY_ACTORS.tiktokScraper, {
     hashtags: SCRAPE_HASHTAGS,
-    resultsPerPage: 20,
+    resultsPerPage: 50,
     shouldDownloadVideos: false,
     shouldDownloadCovers: false,
     shouldDownloadSubtitles: false,
