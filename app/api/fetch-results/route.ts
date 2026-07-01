@@ -5,6 +5,7 @@ import {
   fetchDatasetItems,
   aggregateHashtagTrends,
   aggregateAudioTrends,
+  aggregateInstagramHashtagTrends,
 } from '@/lib/apify'
 
 export const maxDuration = 60
@@ -129,32 +130,102 @@ async function processTikTokDataset(datasetId: string) {
   }
 }
 
+// ─── Instagram pipeline ───────────────────────────────────────────────────────
+
+async function processInstagramDataset(datasetId: string) {
+  const supabase = createServerClient()
+  const now = new Date()
+  const week_number = getWeekNumber(now)
+  const year = now.getFullYear()
+
+  const rawItems = await fetchDatasetItems(datasetId) as Record<string, unknown>[]
+  console.log(`[fetch-results/ig] Fetched ${rawItems.length} raw items`)
+
+  const trends = aggregateInstagramHashtagTrends(rawItems)
+  console.log(`[fetch-results/ig] ${trends.length} hashtag trends`)
+
+  if (trends.length === 0) return { datasetId, skipped: true, reason: 'No Instagram trends after aggregation' }
+
+  const candidateUrls = trends.map(t => t.source_url).filter(Boolean)
+  const { data: existingRows } = await supabase
+    .from('scored_trends').select('source_url').in('source_url', candidateUrls)
+  const existingUrls = new Set((existingRows || []).map(r => r.source_url))
+  const fresh = trends.filter(t => t.source_url && !existingUrls.has(t.source_url))
+
+  if (fresh.length === 0) return { datasetId, skipped: true, reason: 'All Instagram trends already scored' }
+
+  const toScore = fresh.slice(0, MAX_TO_SCORE)
+  let scored = 0
+
+  for (const trend of toScore) {
+    try {
+      const scores = await scoreNormalisedTrend(trend)
+      const { error } = await supabase.from('scored_trends').upsert({
+        trend_name: cleanText(trend.trend_name, 100),
+        platform: 'instagram',
+        trend_type: trend.trend_type,
+        emotional_hook: cleanText(trend.emotional_hook, 200),
+        spike_pct: trend.spike_pct,
+        source_url: trend.source_url.slice(0, 500),
+        week_number,
+        year,
+        engagement_score: Math.round(trend.engagement_volume),
+        ...scores,
+      }, { onConflict: 'source_url', ignoreDuplicates: true })
+      if (error) console.error(`[fetch-results/ig] Upsert error for "${trend.trend_name}":`, error.message)
+      else scored++
+    } catch (err) {
+      console.error(`[fetch-results/ig] Scoring failed for "${trend.trend_name}":`, err)
+    }
+    await new Promise(r => setTimeout(r, 200))
+  }
+
+  return { datasetId, rawFetched: rawItems.length, trends: trends.length, afterDedup: fresh.length, scored }
+}
+
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
-  const runId = searchParams.get('run')
-  const datasetId = searchParams.get('tt_dataset') || searchParams.get('tiktok')
+  const ttRun = searchParams.get('run') || searchParams.get('tt_run')
+  const igRun = searchParams.get('ig_run')
+  const ttDataset = searchParams.get('tt_dataset') || searchParams.get('tiktok')
+  const igDataset = searchParams.get('ig_dataset') || searchParams.get('instagram')
 
   try {
-    let targetDatasetId = datasetId
+    const results: Record<string, unknown> = {}
 
-    if (!targetDatasetId && runId) {
-      const { status, datasetId: ds } = await getRunDatasetId(runId)
+    // ── TikTok ──
+    let ttDs = ttDataset
+    if (!ttDs && ttRun) {
+      const { status, datasetId } = await getRunDatasetId(ttRun)
       if (status !== 'SUCCEEDED') {
-        return NextResponse.json({ skipped: true, reason: `Run status: ${status} — try again soon` })
+        results.tiktok = { skipped: true, reason: `Run status: ${status} — try again soon` }
+      } else {
+        ttDs = datasetId
       }
-      targetDatasetId = ds
     }
+    if (ttDs) results.tiktok = await processTikTokDataset(ttDs)
 
-    if (!targetDatasetId) {
+    // ── Instagram ──
+    let igDs = igDataset
+    if (!igDs && igRun) {
+      const { status, datasetId } = await getRunDatasetId(igRun)
+      if (status !== 'SUCCEEDED') {
+        results.instagram = { skipped: true, reason: `Run status: ${status} — try again soon` }
+      } else {
+        igDs = datasetId
+      }
+    }
+    if (igDs) results.instagram = await processInstagramDataset(igDs)
+
+    if (Object.keys(results).length === 0) {
       return NextResponse.json({
-        error: 'Pass ?tt_dataset=DATASET_ID or ?run=RUN_ID'
+        error: 'Pass ?run=TT_RUN_ID, ?ig_run=IG_RUN_ID, ?tt_dataset=ID, or ?ig_dataset=ID'
       }, { status: 400 })
     }
 
-    const result = await processTikTokDataset(targetDatasetId)
-    return NextResponse.json({ success: true, result })
+    return NextResponse.json({ success: true, results })
   } catch (err) {
     console.error('[fetch-results] Error:', err)
     return NextResponse.json({ success: false, error: String(err) }, { status: 500 })

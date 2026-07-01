@@ -41,29 +41,54 @@ async function runActor(actorId: string, input: Record<string, unknown>): Promis
   return { actorId, runId: run.id, status: run.status }
 }
 
-// ─── TikTok Hashtag Scraper ───────────────────────────────────────────────────
+// ─── Scraper config ───────────────────────────────────────────────────────────
 // Cultural lifestyle hashtags — not alcohol-specific.
-// Goal: find what's trending in UAE culture that brands can authentically join.
-const SCRAPE_HASHTAGS = [
+// Goal: find what's trending in UAE that brands can authentically join.
+const TIKTOK_HASHTAGS = [
   'dubai', 'abudhabi', 'dubainightlife', 'dubailife',
   'luxurylifestyle', 'uae', 'dubaievents', 'rooftop',
 ]
 
-// Only posts above this view count feed into trend aggregation.
-// Filters out local/micro creators, keeps only viral-scale content.
-const MIN_POST_VIEWS = 50_000
+const INSTAGRAM_HASHTAGS = [
+  'dubai', 'dubainightlife', 'dubailife', 'luxurylifestyle',
+  'uae', 'dubaievents', 'abudhabi', 'rooftop',
+]
+
+// Only posts above these thresholds feed into aggregation.
+// TikTok: views. Instagram: likes + comments*3.
+export const MIN_POST_VIEWS = 50_000
+export const MIN_IG_POST_ENGAGEMENT = 500
 
 export async function triggerAllScrapers(): Promise<ActorRunResult[]> {
-  const result = await runActor(APIFY_ACTORS.tiktokScraper, {
-    hashtags: SCRAPE_HASHTAGS,
-    resultsPerPage: 50,
-    shouldDownloadVideos: false,
-    shouldDownloadCovers: false,
-    shouldDownloadSubtitles: false,
-    shouldDownloadSlideshowImages: false,
-  })
-  console.log(`[apify] Started scraper: runId=${result.runId}`)
-  return [result]
+  const results: ActorRunResult[] = []
+
+  try {
+    const tt = await runActor(APIFY_ACTORS.tiktokScraper, {
+      hashtags: TIKTOK_HASHTAGS,
+      resultsPerPage: 50,
+      shouldDownloadVideos: false,
+      shouldDownloadCovers: false,
+      shouldDownloadSubtitles: false,
+      shouldDownloadSlideshowImages: false,
+    })
+    results.push({ ...tt, platform: 'tiktok' } as ActorRunResult)
+  } catch (err) {
+    console.error('[apify] TikTok scraper failed:', err)
+  }
+
+  try {
+    const ig = await runActor(APIFY_ACTORS.instagramHashtag, {
+      directUrls: INSTAGRAM_HASHTAGS.map(h => `https://www.instagram.com/explore/tags/${h}/`),
+      resultsType: 'posts',
+      resultsLimit: 30,
+      onlyPostsNewerThan: '7 days',
+    })
+    results.push({ ...ig, platform: 'instagram' } as ActorRunResult)
+  } catch (err) {
+    console.error('[apify] Instagram scraper failed:', err)
+  }
+
+  return results
 }
 
 export async function fetchDatasetItems(datasetId: string): Promise<unknown[]> {
@@ -292,6 +317,7 @@ export function aggregateInstagramHashtagTrends(items: Record<string, unknown>[]
     const comments = safeNum(item.commentsCount)
     const views = safeNum(item.videoViewCount)
     const engagement = likes + comments * 3 + views
+    if (engagement < MIN_IG_POST_ENGAGEMENT) continue
     const shortCode = item.shortCode as string
     const postUrl = (item.url as string) || (shortCode ? `https://www.instagram.com/p/${shortCode}/` : '')
     const caption = ((item.caption as string) || '').slice(0, 200)
@@ -311,7 +337,7 @@ export function aggregateInstagramHashtagTrends(items: Record<string, unknown>[]
 
   const trends: NormalisedTrend[] = []
   for (const entry of Array.from(map.values())) {
-    if (entry.postCount < 2) continue
+    if (entry.postCount < 3) continue
     trends.push({
       platform: 'instagram', trend_name: `#${entry.name}`, trend_type: 'hashtag',
       emotional_hook: entry.bestCaption || `#${entry.name} trending on Instagram`,
