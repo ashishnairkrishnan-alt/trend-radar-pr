@@ -85,7 +85,9 @@ export async function triggerAllScrapers(): Promise<ActorRunResult[]> {
     })
     results.push({ ...ig, platform: 'instagram' } as ActorRunResult)
   } catch (err) {
-    console.error('[apify] Instagram scraper failed:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[apify] Instagram scraper failed:', msg)
+    results.push({ actorId: APIFY_ACTORS.instagramHashtag, runId: '', status: `ERROR: ${msg}`, platform: 'instagram' } as ActorRunResult)
   }
 
   return results
