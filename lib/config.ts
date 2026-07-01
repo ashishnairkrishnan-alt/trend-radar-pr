@@ -79,7 +79,7 @@ export const ALL_KEYWORDS = Object.values(KEYWORD_CLUSTERS).flat()
 // ─── Apify Actor IDs ──────────────────────────────────────────────────────────
 export const APIFY_ACTORS = {
   tiktokScraper: 'clockworks/tiktok-scraper',
-  instagramHashtag: 'apify/instagram-hashtag-scraper',
+  instagramHashtag: 'apify/instagram-scraper',
   instagramReel: 'apify/instagram-reel-scraper',
 } as const
 

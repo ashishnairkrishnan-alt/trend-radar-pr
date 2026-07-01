@@ -78,7 +78,7 @@ export async function triggerAllScrapers(): Promise<ActorRunResult[]> {
 
   try {
     const ig = await runActor(APIFY_ACTORS.instagramHashtag, {
-      hashtags: INSTAGRAM_HASHTAGS,
+      directUrls: INSTAGRAM_HASHTAGS.map(h => `https://www.instagram.com/explore/tags/${h}/`),
       resultsType: 'posts',
       resultsLimit: 30,
       onlyPostsNewerThan: '7 days',
