@@ -315,11 +315,13 @@ export function aggregateInstagramHashtagTrends(items: Record<string, unknown>[]
   const map = new Map<string, Entry>()
 
   for (const item of items) {
-    const likes = safeNum(item.likesCount)
+    // Instagram hides public like counts — likesCount is always 0, so skip engagement filter.
+    // Use commentsCount as a minimal quality signal: 0 comments = likely spam/bot post.
     const comments = safeNum(item.commentsCount)
+    if (comments === 0) continue
+    const likes = safeNum(item.likesCount)
     const views = safeNum(item.videoViewCount)
     const engagement = likes + comments * 3 + views
-    if (engagement < MIN_IG_POST_ENGAGEMENT) continue
     const shortCode = item.shortCode as string
     const postUrl = (item.url as string) || (shortCode ? `https://www.instagram.com/p/${shortCode}/` : '')
     const caption = ((item.caption as string) || '').slice(0, 200)

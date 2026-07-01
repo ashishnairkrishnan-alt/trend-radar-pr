@@ -217,15 +217,7 @@ export async function GET(request: NextRequest) {
         igDs = datasetId
       }
     }
-    if (igDs) {
-      if (searchParams.get('debug') === '1') {
-        const raw = await fetchDatasetItems(igDs) as Record<string, unknown>[]
-        const first = raw[0] || {}
-        results.instagram = { debug: true, total: raw.length, firstItemKeys: Object.keys(first), firstItem: first }
-      } else {
-        results.instagram = await processInstagramDataset(igDs)
-      }
-    }
+    if (igDs) results.instagram = await processInstagramDataset(igDs)
 
     if (Object.keys(results).length === 0) {
       return NextResponse.json({
