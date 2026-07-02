@@ -5,26 +5,26 @@ import type { NormalisedTrend } from '@/lib/apify'
 
 export const maxDuration = 60
 
-const LATER_URL = 'https://later.com/blog/instagram-reels-trends/'
+const LATER_URL = 'https://later.com/blog/tiktok-trends/'
 
-// ─── Later.com scraper ────────────────────────────────────────────────────────
-// Page structure (confirmed from debug):
+// ─── Later.com TikTok scraper ─────────────────────────────────────────────────
+// Expected page structure (same blog engine as IG page):
 //   <h3><b>Trend: </b><b>Name</b> <b>— Date</b></h3>
 //   <p data-rich="true"><b>Trend Recap: </b>description</p>
-//   <p data-rich="true"><b>Audio: </b><a href="instagram.com/reels/audio/ID/">...</a></p>
-//   <iframe src="https://www.instagram.com/p/POST_ID/embed/" ...></iframe>
+//   <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@user/video/ID">
+//   OR <iframe src="https://www.tiktok.com/embed/v2/ID">
+//   OR <a href="https://www.tiktok.com/@user/video/ID">
 
 const MAX_TRENDS = 8   // cap to avoid Vercel 60s timeout (8 × ~5s Claude = ~40s)
 
 interface DiscoveredTrend {
   trend_name: string
-  audio_id: string
   emotional_hook: string
-  source_url: string // direct reel post URL from embedded iframe
+  source_url: string
   dated_at: Date | null
 }
 
-async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
+async function scrapeLaterTikTokList(): Promise<DiscoveredTrend[]> {
   const res = await fetch(LATER_URL, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
@@ -32,11 +32,11 @@ async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
     },
     signal: AbortSignal.timeout(20000),
   })
-  if (!res.ok) throw new Error(`Later.com fetch failed: ${res.status}`)
+  if (!res.ok) throw new Error(`Later.com TikTok fetch failed: ${res.status}`)
   const html = await res.text()
 
   const trends: DiscoveredTrend[] = []
-  const seenAudioIds = new Set<string>()
+  const seenUrls = new Set<string>()
 
   // Only include current month and previous month (e.g. June + July, never May)
   const now = new Date()
@@ -71,27 +71,37 @@ async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
     )
     if (!trend_name || trend_name.length < 3) continue
 
-    // ── Audio ID ──
-    const audioMatch = section.match(/instagram\.com\/reels\/audio\/(\d{8,})/)
-    if (!audioMatch) continue
-    const audio_id = audioMatch[1]
-    if (seenAudioIds.has(audio_id)) continue
-    seenAudioIds.add(audio_id)
+    // ── Source URL: try multiple TikTok embed patterns ──
+    // 1. TikTok blockquote embed: <blockquote cite="https://www.tiktok.com/@user/video/ID">
+    const blockquoteMatch = section.match(/cite=["']https?:\/\/(?:www\.)?tiktok\.com\/@([^/]+)\/video\/(\d+)["']/i)
+    // 2. TikTok iframe: <iframe src="https://www.tiktok.com/embed/v2/ID">
+    const iframeMatch = section.match(/tiktok\.com\/embed\/v2\/(\d+)/i)
+    // 3. Direct TikTok link in <a href>
+    const directMatch = section.match(/href=["']https?:\/\/(?:www\.)?tiktok\.com\/@([^/]+)\/video\/(\d+)["']/i)
 
-    // ── Source URL: prefer embedded post iframe, fall back to audio page ──
-    const iframeMatch = section.match(/instagram\.com\/p\/([A-Za-z0-9_-]+)\/embed/)
-    const source_url = iframeMatch
-      ? `https://www.instagram.com/p/${iframeMatch[1]}/`
-      : `https://www.instagram.com/reels/audio/${audio_id}/`
+    let source_url: string
+    if (blockquoteMatch) {
+      source_url = `https://www.tiktok.com/@${blockquoteMatch[1]}/video/${blockquoteMatch[2]}`
+    } else if (directMatch) {
+      source_url = `https://www.tiktok.com/@${directMatch[1]}/video/${directMatch[2]}`
+    } else if (iframeMatch) {
+      source_url = `https://www.tiktok.com/video/${iframeMatch[1]}`
+    } else {
+      // Fallback: TikTok search for this trend
+      source_url = `https://www.tiktok.com/search?q=${encodeURIComponent(trend_name)}`
+    }
+
+    if (seenUrls.has(source_url)) continue
+    seenUrls.add(source_url)
 
     // ── Emotional hook: text after <b>Trend Recap:</b> ──
     const recapMatch = section.match(/<b>\s*Trend Recap\s*:?\s*<\/b>([\s\S]{20,500}?)<\/p>/i)
     const rawHook = recapMatch
       ? recapMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ')
-      : `Trending Instagram Reels format — ${trend_name}`
+      : `Trending TikTok format — ${trend_name}`
     const emotional_hook = decodeHtmlEntities(rawHook).slice(0, 200).trim()
 
-    trends.push({ trend_name, audio_id, emotional_hook, source_url, dated_at })
+    trends.push({ trend_name, emotional_hook, source_url, dated_at })
     if (trends.length >= MAX_TRENDS) break
   }
 
@@ -108,8 +118,6 @@ function decodeHtmlEntities(s: string): string {
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
     .replace(/&[a-z]+;/g, '')
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function cleanText(s: string, max = 200): string {
   return (s || '').replace(/[\x00-\x1F\x7F]/g, ' ').slice(0, max).trim()
@@ -140,42 +148,42 @@ export async function GET(request: NextRequest) {
     const html = await res.text()
     const sections = html.split(/<h3[^>]*>/i)
     const firstTrend = sections.find(s => /trend\s*:/i.test(s.slice(0, 300)))
-    const discovered = await scrapeLatertrendList().catch(e => ({ error: String(e) }))
+    const discovered = await scrapeLaterTikTokList().catch(e => ({ error: String(e) }))
     return NextResponse.json({
+      status: res.status,
+      htmlLength: html.length,
       h3count: (html.match(/<h3/gi) || []).length,
-      audioCount: (html.match(/reels\/audio/gi) || []).length,
-      iframeCount: (html.match(/instagram\.com\/p\/[A-Za-z0-9_-]+\/embed/gi) || []).length,
+      blockquoteCount: (html.match(/tiktok-embed/gi) || []).length,
+      iframeCount: (html.match(/tiktok\.com\/embed\/v2\//gi) || []).length,
+      directLinkCount: (html.match(/tiktok\.com\/@[^/]+\/video\//gi) || []).length,
       firstTrendSectionPreview: firstTrend?.slice(0, 600) ?? 'none',
       discovered,
     })
   }
 
-  // ?reset=1 — wipe all curated seeds then return immediately (call without reset to seed)
+  // ?reset=1 — wipe all TikTok curated seeds then return immediately
   if (request.nextUrl.searchParams.get('reset') === '1') {
-    const { count: c1 } = await supabase.from('scored_trends')
+    const { count } = await supabase.from('scored_trends')
       .delete({ count: 'exact' })
-      .eq('platform', 'instagram')
+      .eq('platform', 'tiktok')
       .eq('spike_pct', 85)
-    const { count: c2 } = await supabase.from('scored_trends')
-      .delete({ count: 'exact' })
-      .like('source_url', '%instagram.com/reels/audio/%')
-    return NextResponse.json({ success: true, reset: true, deleted: (c1 ?? 0) + (c2 ?? 0) })
+    return NextResponse.json({ success: true, reset: true, deleted: count ?? 0 })
   }
 
-  // Step 1 — scrape Later.com
+  // Step 1 — scrape Later.com TikTok trends
   let discovered: DiscoveredTrend[]
   try {
-    discovered = await scrapeLatertrendList()
+    discovered = await scrapeLaterTikTokList()
   } catch (err) {
     return NextResponse.json(
-      { success: false, error: `Later.com scrape failed: ${String(err)}` },
+      { success: false, error: `Later.com TikTok scrape failed: ${String(err)}` },
       { status: 500 }
     )
   }
 
   if (discovered.length === 0) {
     return NextResponse.json(
-      { success: false, error: 'No trends parsed from Later.com — page structure may have changed' },
+      { success: false, error: 'No TikTok trends parsed from Later.com — page structure may have changed' },
       { status: 500 }
     )
   }
@@ -190,7 +198,7 @@ export async function GET(request: NextRequest) {
   if (fresh.length === 0) {
     return NextResponse.json({
       success: true,
-      message: 'All trends already seeded for this week',
+      message: 'All TikTok trends already seeded for this week',
       discovered: discovered.length,
       scored: 0,
     })
@@ -203,14 +211,14 @@ export async function GET(request: NextRequest) {
   for (const trend of fresh) {
     try {
       const normTrend: NormalisedTrend = {
-        platform: 'instagram',
+        platform: 'tiktok',
         trend_name: trend.trend_name,
-        trend_type: 'audio',
+        trend_type: 'format',
         emotional_hook: trend.emotional_hook,
         engagement_volume: 100000,
         spike_pct: 85,
         source_url: trend.source_url,
-        raw_data: { audio_id: trend.audio_id },
+        raw_data: {},
       }
 
       const scores = await scoreNormalisedTrend(normTrend)
@@ -218,8 +226,8 @@ export async function GET(request: NextRequest) {
       const { error } = await supabase.from('scored_trends').upsert(
         {
           trend_name: cleanText(trend.trend_name, 100),
-          platform: 'instagram',
-          trend_type: 'audio',
+          platform: 'tiktok',
+          trend_type: 'format',
           emotional_hook: cleanText(trend.emotional_hook, 200),
           spike_pct: 85,
           source_url: trend.source_url,
@@ -239,12 +247,12 @@ export async function GET(request: NextRequest) {
     await new Promise(r => setTimeout(r, 300))
   }
 
-  const postLinks = fresh.filter(t => t.source_url.includes('/p/')).length
+  const videoLinks = fresh.filter(t => t.source_url.includes('/video/')).length
   return NextResponse.json({
     success: true,
     discovered: discovered.length,
-    postLinks,
-    audioFallbacks: fresh.length - postLinks,
+    videoLinks,
+    searchFallbacks: fresh.length - videoLinks,
     fresh: fresh.length,
     scored,
     errors,

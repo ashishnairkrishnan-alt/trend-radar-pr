@@ -11,6 +11,18 @@
     {
       "path": "/api/seed-ig-trends?reset=1",
       "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/seed-ig-trends",
+      "schedule": "5 6 * * 1"
+    },
+    {
+      "path": "/api/seed-tt-trends?reset=1",
+      "schedule": "8 6 * * 1"
+    },
+    {
+      "path": "/api/seed-tt-trends",
+      "schedule": "13 6 * * 1"
     }
   ]
 }
