@@ -15,7 +15,7 @@ const LATER_URL = 'https://later.com/blog/instagram-reels-trends/'
 //   <iframe src="https://www.instagram.com/p/POST_ID/embed/" ...></iframe>
 
 const MAX_TRENDS = 15       // cap to avoid Vercel timeout
-const MAX_AGE_DAYS = 56    // only seed trends from the last 8 weeks
+const MAX_AGE_DAYS = 35    // only seed trends from the last 5 weeks (current + last month)
 
 interface DiscoveredTrend {
   trend_name: string
@@ -55,11 +55,10 @@ async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
     const dateMatch = rawHeading.match(/[—–-]\s*(\w+ \d+,?\s*\d{4})\s*$/)
     const dated_at = dateMatch ? new Date(dateMatch[1]) : null
 
-    // Skip trends older than MAX_AGE_DAYS
-    if (dated_at && !isNaN(dated_at.getTime())) {
-      const ageDays = (Date.now() - dated_at.getTime()) / 86400000
-      if (ageDays > MAX_AGE_DAYS) continue
-    }
+    // Skip trends with no parseable date, or older than MAX_AGE_DAYS
+    if (!dated_at || isNaN(dated_at.getTime())) continue
+    const ageDays = (Date.now() - dated_at.getTime()) / 86400000
+    if (ageDays > MAX_AGE_DAYS) continue
 
     // Strip "Trend: " prefix and " — Month DD, YYYY" suffix
     const trend_name = decodeHtmlEntities(
@@ -149,13 +148,12 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // ?reset=1 — clear this week's seeded Instagram trends to allow fresh re-seed
+  // ?reset=1 — wipe all curated Instagram seeds (Later.com entries use spike_pct=85)
   if (request.nextUrl.searchParams.get('reset') === '1') {
     await supabase.from('scored_trends')
       .delete()
       .eq('platform', 'instagram')
-      .eq('week_number', week_number)
-      .eq('year', year)
+      .eq('spike_pct', 85)
     await supabase.from('scored_trends')
       .delete()
       .like('source_url', '%instagram.com/reels/audio/%')
