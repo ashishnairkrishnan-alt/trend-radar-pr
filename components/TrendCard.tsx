@@ -47,11 +47,11 @@ function getSourceLabel(url: string): string {
     const u = new URL(url)
     const parts = u.pathname.split('/').filter(Boolean)
     if (u.hostname.includes('tiktok')) {
-      // @username/video/ID → show "@username"
       const username = parts.find(p => p.startsWith('@'))
       return username || 'TikTok video'
     }
     if (u.hostname.includes('instagram')) {
+      if (parts[0] === 'reels' && parts[1] === 'audio') return 'Trending audio'
       if (parts[0] === 'reel' && parts[1]) return `Reel · ${parts[1]}`
       if (parts[0] === 'p' && parts[1]) return `Post · ${parts[1]}`
       return 'Instagram post'
@@ -59,6 +59,15 @@ function getSourceLabel(url: string): string {
     return url
   } catch {
     return url
+  }
+}
+
+function isAudioUrl(url: string): boolean {
+  try {
+    const parts = new URL(url).pathname.split('/').filter(Boolean)
+    return parts[0] === 'reels' && parts[1] === 'audio'
+  } catch {
+    return false
   }
 }
 
@@ -93,9 +102,19 @@ function SourceVideo({ url, platform }: { url: string; platform: string }) {
             <p className="text-[10px] uppercase tracking-widest text-pr-muted font-medium leading-none mb-0.5">
               Trend spotted in
             </p>
-            <p className="text-[11px] font-semibold text-pr-text truncate max-w-[160px]">
-              {getSourceLabel(url)}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[11px] font-semibold text-pr-text truncate max-w-[140px]">
+                {getSourceLabel(url)}
+              </p>
+              {isAudioUrl(url) && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide bg-purple-100 text-purple-700 shrink-0">
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9 18V5l12-2v13M9 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm12-2c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z"/>
+                  </svg>
+                  AUDIO
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
