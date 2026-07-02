@@ -47,6 +47,7 @@ function getSourceLabel(url: string): string {
     const u = new URL(url)
     const parts = u.pathname.split('/').filter(Boolean)
     if (u.hostname.includes('tiktok')) {
+      if (parts[0] === 'music') return 'Trending audio'
       const username = parts.find(p => p.startsWith('@'))
       return username || 'TikTok video'
     }
@@ -64,8 +65,11 @@ function getSourceLabel(url: string): string {
 
 function isAudioUrl(url: string): boolean {
   try {
-    const parts = new URL(url).pathname.split('/').filter(Boolean)
-    return parts[0] === 'reels' && parts[1] === 'audio'
+    const u = new URL(url)
+    const parts = u.pathname.split('/').filter(Boolean)
+    if (u.hostname.includes('instagram')) return parts[0] === 'reels' && parts[1] === 'audio'
+    if (u.hostname.includes('tiktok')) return parts[0] === 'music'
+    return false
   } catch {
     return false
   }

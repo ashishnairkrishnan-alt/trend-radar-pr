@@ -74,10 +74,12 @@ async function scrapeLaterTikTokList(): Promise<DiscoveredTrend[]> {
     // ── Source URL: try multiple TikTok embed patterns ──
     // 1. TikTok blockquote embed: <blockquote cite="https://www.tiktok.com/@user/video/ID">
     const blockquoteMatch = section.match(/cite=["']https?:\/\/(?:www\.)?tiktok\.com\/@([^/]+)\/video\/(\d+)["']/i)
-    // 2. TikTok iframe: <iframe src="https://www.tiktok.com/embed/v2/ID">
-    const iframeMatch = section.match(/tiktok\.com\/embed\/v2\/(\d+)/i)
-    // 3. Direct TikTok link in <a href>
+    // 2. Direct TikTok link in <a href>
     const directMatch = section.match(/href=["']https?:\/\/(?:www\.)?tiktok\.com\/@([^/]+)\/video\/(\d+)["']/i)
+    // 3. TikTok iframe: <iframe src="https://www.tiktok.com/embed/v2/ID">
+    const iframeMatch = section.match(/tiktok\.com\/embed\/v2\/(\d+)/i)
+    // 4. TikTok music/audio link from "Audio:" section (e.g. tiktok.com/music/NAME-ID)
+    const musicMatch = section.match(/href=["'](https?:\/\/(?:www\.)?tiktok\.com\/music\/[^"'?\s]+)/i)
 
     let source_url: string
     if (blockquoteMatch) {
@@ -86,8 +88,10 @@ async function scrapeLaterTikTokList(): Promise<DiscoveredTrend[]> {
       source_url = `https://www.tiktok.com/@${directMatch[1]}/video/${directMatch[2]}`
     } else if (iframeMatch) {
       source_url = `https://www.tiktok.com/video/${iframeMatch[1]}`
+    } else if (musicMatch) {
+      source_url = musicMatch[1]
     } else {
-      // Fallback: TikTok search for this trend
+      // Last resort: TikTok search for this trend
       source_url = `https://www.tiktok.com/search?q=${encodeURIComponent(trend_name)}`
     }
 
@@ -156,6 +160,7 @@ export async function GET(request: NextRequest) {
       blockquoteCount: (html.match(/tiktok-embed/gi) || []).length,
       iframeCount: (html.match(/tiktok\.com\/embed\/v2\//gi) || []).length,
       directLinkCount: (html.match(/tiktok\.com\/@[^/]+\/video\//gi) || []).length,
+      musicLinkCount: (html.match(/tiktok\.com\/music\//gi) || []).length,
       firstTrendSectionPreview: firstTrend?.slice(0, 600) ?? 'none',
       discovered,
     })
