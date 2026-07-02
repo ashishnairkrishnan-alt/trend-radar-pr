@@ -3,17 +3,22 @@ import { createServerClient } from '@/lib/supabase'
 import { scoreNormalisedTrend } from '@/lib/scorer'
 import type { NormalisedTrend } from '@/lib/apify'
 
-export const maxDuration = 300
+export const maxDuration = 60
 
 const LATER_URL = 'https://later.com/blog/instagram-reels-trends/'
-const APIFY_BASE = 'https://api.apify.com/v2'
 
 // ─── Later.com scraper ────────────────────────────────────────────────────────
+// Page structure (confirmed from debug):
+//   <h3><b>Trend: </b><b>Name</b> <b>— Date</b></h3>
+//   <p data-rich="true"><b>Trend Recap: </b>description</p>
+//   <p data-rich="true"><b>Audio: </b><a href="instagram.com/reels/audio/ID/">...</a></p>
+//   <iframe src="https://www.instagram.com/p/POST_ID/embed/" ...></iframe>
 
 interface DiscoveredTrend {
   trend_name: string
   audio_id: string
   emotional_hook: string
+  source_url: string // direct reel post URL from embedded iframe
 }
 
 async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
@@ -30,19 +35,19 @@ async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
   const trends: DiscoveredTrend[] = []
   const seenAudioIds = new Set<string>()
 
-  // Headings look like: <h3>Trend: The summer schedule — June 26, 2026</h3>
+  // Split on <h3> boundaries — each section is one trend
   const sections = html.split(/<h3[^>]*>/i).slice(1)
 
   for (const section of sections) {
-    // Extract heading text before </h3>, stripping any inner HTML tags
+    // ── Heading text (may contain inner <b> tags) ──
     const headingMatch = section.match(/^([\s\S]*?)<\/h3>/i)
     if (!headingMatch) continue
     const rawHeading = headingMatch[1].replace(/<[^>]+>/g, '').trim()
 
-    // Must start with "Trend:" prefix
+    // Only process sections that start with "Trend:"
     if (!/^trend\s*:/i.test(rawHeading)) continue
 
-    // Strip "Trend: " prefix and " — Date" suffix → clean trend name
+    // Strip "Trend: " prefix and " — Month DD, YYYY" suffix
     const trend_name = decodeHtmlEntities(
       rawHeading
         .replace(/^trend\s*:\s*/i, '')
@@ -51,21 +56,27 @@ async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
     )
     if (!trend_name || trend_name.length < 3) continue
 
-    // Audio link — in <strong>Audio:</strong> paragraph
+    // ── Audio ID ──
     const audioMatch = section.match(/instagram\.com\/reels\/audio\/(\d{8,})/)
     if (!audioMatch) continue
     const audio_id = audioMatch[1]
     if (seenAudioIds.has(audio_id)) continue
     seenAudioIds.add(audio_id)
 
-    // Emotional hook — text after <strong>Trend Recap:</strong>
-    const recapMatch = section.match(/<strong>\s*Trend Recap\s*:?\s*<\/strong>\s*([\s\S]{20,500}?)<\/p>/i)
+    // ── Source URL: prefer embedded post iframe, fall back to audio page ──
+    const iframeMatch = section.match(/instagram\.com\/p\/([A-Za-z0-9_-]+)\/embed/)
+    const source_url = iframeMatch
+      ? `https://www.instagram.com/p/${iframeMatch[1]}/`
+      : `https://www.instagram.com/reels/audio/${audio_id}/`
+
+    // ── Emotional hook: text after <b>Trend Recap:</b> ──
+    const recapMatch = section.match(/<b>\s*Trend Recap\s*:?\s*<\/b>([\s\S]{20,500}?)<\/p>/i)
     const rawHook = recapMatch
       ? recapMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ')
       : `Trending Instagram Reels format — ${trend_name}`
     const emotional_hook = decodeHtmlEntities(rawHook).slice(0, 200).trim()
 
-    trends.push({ trend_name, audio_id, emotional_hook })
+    trends.push({ trend_name, audio_id, emotional_hook, source_url })
   }
 
   return trends
@@ -77,44 +88,9 @@ function decodeHtmlEntities(s: string): string {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
     .replace(/&[a-z]+;/g, '')
-}
-
-// ─── Apify: find example reel for an audio ID ────────────────────────────────
-
-async function findExampleReel(audioId: string): Promise<string | null> {
-  const apiKey = process.env.APIFY_API_KEY
-  if (!apiKey) return null
-
-  try {
-    const res = await fetch(
-      `${APIFY_BASE}/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${apiKey}&timeout=55&memory=512`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          directUrls: [`https://www.instagram.com/reels/audio/${audioId}/`],
-          resultsLimit: 5,
-        }),
-        signal: AbortSignal.timeout(60000),
-      }
-    )
-    if (!res.ok) return null
-
-    const items = (await res.json()) as Record<string, unknown>[]
-
-    // Pick most-commented post (likes are hidden on Instagram)
-    const best = items
-      .filter(p => (p.commentsCount as number) > 0 && p.shortCode)
-      .sort((a, b) => (b.commentsCount as number) - (a.commentsCount as number))[0]
-
-    return best?.shortCode
-      ? `https://www.instagram.com/reel/${best.shortCode}/`
-      : null
-  } catch {
-    return null
-  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -139,49 +115,38 @@ export async function GET(request: NextRequest) {
   const week_number = getWeekNumber(now)
   const year = now.getFullYear()
 
-  // ?reset=1 clears this week's instagram seeds so they can be refreshed
+  // ?debug=1 — inspect what the parser sees without writing anything
+  if (request.nextUrl.searchParams.get('debug') === '1') {
+    const res = await fetch(LATER_URL, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/125.0 Safari/537.36' },
+      signal: AbortSignal.timeout(20000),
+    })
+    const html = await res.text()
+    const sections = html.split(/<h3[^>]*>/i)
+    const firstTrend = sections.find(s => /trend\s*:/i.test(s.slice(0, 300)))
+    const discovered = await scrapeLatertrendList().catch(e => ({ error: String(e) }))
+    return NextResponse.json({
+      h3count: (html.match(/<h3/gi) || []).length,
+      audioCount: (html.match(/reels\/audio/gi) || []).length,
+      iframeCount: (html.match(/instagram\.com\/p\/[A-Za-z0-9_-]+\/embed/gi) || []).length,
+      firstTrendSectionPreview: firstTrend?.slice(0, 600) ?? 'none',
+      discovered,
+    })
+  }
+
+  // ?reset=1 — clear this week's seeded Instagram trends to allow fresh re-seed
   if (request.nextUrl.searchParams.get('reset') === '1') {
     await supabase.from('scored_trends')
       .delete()
       .eq('platform', 'instagram')
       .eq('week_number', week_number)
       .eq('year', year)
-    // Also clear any old audio-page entries from previous runs
     await supabase.from('scored_trends')
       .delete()
       .like('source_url', '%instagram.com/reels/audio/%')
   }
 
-  // ?debug=1 returns raw HTML snippet and parsed section count for diagnosis
-  if (request.nextUrl.searchParams.get('debug') === '1') {
-    const res = await fetch(LATER_URL, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-      },
-      signal: AbortSignal.timeout(20000),
-    })
-    const html = await res.text()
-    const h3count = (html.match(/<h3/gi) || []).length
-    const audioCount = (html.match(/reels\/audio/gi) || []).length
-    const trendCount = (html.match(/Trend:/gi) || []).length
-    const sections = html.split(/<h3[^>]*>/i)
-    const firstSection = sections[1]?.slice(0, 800) ?? 'no h3 found'
-    // Find first section that actually contains "Trend:"
-    const firstTrendSection = sections.find(s => /trend\s*:/i.test(s.slice(0, 200)))?.slice(0, 800) ?? 'none found'
-    return NextResponse.json({
-      status: res.status,
-      htmlLength: html.length,
-      h3count,
-      audioCount,
-      trendCount,
-      firstH3Section: firstSection,
-      firstTrendSection,
-      first500chars: html.slice(0, 500),
-    })
-  }
-
-  // Step 1 — scrape Later.com for current trends
+  // Step 1 — scrape Later.com
   let discovered: DiscoveredTrend[]
   try {
     discovered = await scrapeLatertrendList()
@@ -199,47 +164,23 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Step 2 — find example reel URLs in parallel batches of 3
-  const BATCH_SIZE = 3
-  const withUrls: Array<DiscoveredTrend & { source_url: string }> = []
-
-  for (let i = 0; i < discovered.length; i += BATCH_SIZE) {
-    const batch = discovered.slice(i, i + BATCH_SIZE)
-    const results = await Promise.all(
-      batch.map(async t => {
-        const reelUrl = await findExampleReel(t.audio_id)
-        return {
-          ...t,
-          // Fall back to audio page if no reel found
-          source_url: reelUrl ?? `https://www.instagram.com/reels/audio/${t.audio_id}/`,
-        }
-      })
-    )
-    withUrls.push(...results)
-  }
-
-  const reelCount = withUrls.filter(t => t.source_url.includes('/reel/')).length
-
-  // Step 3 — dedup against already-seeded source_urls
-  const urls = withUrls.map(t => t.source_url)
+  // Step 2 — dedup against existing source_urls
+  const urls = discovered.map(t => t.source_url)
   const { data: existing } = await supabase
-    .from('scored_trends')
-    .select('source_url')
-    .in('source_url', urls)
+    .from('scored_trends').select('source_url').in('source_url', urls)
   const existingUrls = new Set((existing || []).map(r => r.source_url))
-  const fresh = withUrls.filter(t => !existingUrls.has(t.source_url))
+  const fresh = discovered.filter(t => !existingUrls.has(t.source_url))
 
   if (fresh.length === 0) {
     return NextResponse.json({
       success: true,
       message: 'All trends already seeded for this week',
       discovered: discovered.length,
-      reelLinks: reelCount,
       scored: 0,
     })
   }
 
-  // Step 4 — score with Claude and upsert
+  // Step 3 — score with Claude and upsert
   let scored = 0
   const errors: string[] = []
 
@@ -250,7 +191,7 @@ export async function GET(request: NextRequest) {
         trend_name: trend.trend_name,
         trend_type: 'audio',
         emotional_hook: trend.emotional_hook,
-        engagement_volume: 100000, // Later.com = curated viral-scale trends
+        engagement_volume: 100000,
         spike_pct: 85,
         source_url: trend.source_url,
         raw_data: { audio_id: trend.audio_id },
@@ -282,11 +223,12 @@ export async function GET(request: NextRequest) {
     await new Promise(r => setTimeout(r, 300))
   }
 
+  const postLinks = fresh.filter(t => t.source_url.includes('/p/')).length
   return NextResponse.json({
     success: true,
     discovered: discovered.length,
-    reelLinks: reelCount,
-    audioFallbacks: discovered.length - reelCount,
+    postLinks,
+    audioFallbacks: fresh.length - postLinks,
     fresh: fresh.length,
     scored,
     errors,
