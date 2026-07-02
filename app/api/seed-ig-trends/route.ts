@@ -14,11 +14,15 @@ const LATER_URL = 'https://later.com/blog/instagram-reels-trends/'
 //   <p data-rich="true"><b>Audio: </b><a href="instagram.com/reels/audio/ID/">...</a></p>
 //   <iframe src="https://www.instagram.com/p/POST_ID/embed/" ...></iframe>
 
+const MAX_TRENDS = 15       // cap to avoid Vercel timeout
+const MAX_AGE_DAYS = 56    // only seed trends from the last 8 weeks
+
 interface DiscoveredTrend {
   trend_name: string
   audio_id: string
   emotional_hook: string
   source_url: string // direct reel post URL from embedded iframe
+  dated_at: Date | null
 }
 
 async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
@@ -46,6 +50,16 @@ async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
 
     // Only process sections that start with "Trend:"
     if (!/^trend\s*:/i.test(rawHeading)) continue
+
+    // Parse date from " — Month DD, YYYY" suffix before stripping it
+    const dateMatch = rawHeading.match(/[—–-]\s*(\w+ \d+,?\s*\d{4})\s*$/)
+    const dated_at = dateMatch ? new Date(dateMatch[1]) : null
+
+    // Skip trends older than MAX_AGE_DAYS
+    if (dated_at && !isNaN(dated_at.getTime())) {
+      const ageDays = (Date.now() - dated_at.getTime()) / 86400000
+      if (ageDays > MAX_AGE_DAYS) continue
+    }
 
     // Strip "Trend: " prefix and " — Month DD, YYYY" suffix
     const trend_name = decodeHtmlEntities(
@@ -76,7 +90,8 @@ async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
       : `Trending Instagram Reels format — ${trend_name}`
     const emotional_hook = decodeHtmlEntities(rawHook).slice(0, 200).trim()
 
-    trends.push({ trend_name, audio_id, emotional_hook, source_url })
+    trends.push({ trend_name, audio_id, emotional_hook, source_url, dated_at })
+    if (trends.length >= MAX_TRENDS) break
   }
 
   return trends
