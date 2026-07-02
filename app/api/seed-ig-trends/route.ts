@@ -14,7 +14,7 @@ const LATER_URL = 'https://later.com/blog/instagram-reels-trends/'
 //   <p data-rich="true"><b>Audio: </b><a href="instagram.com/reels/audio/ID/">...</a></p>
 //   <iframe src="https://www.instagram.com/p/POST_ID/embed/" ...></iframe>
 
-const MAX_TRENDS = 15       // cap to avoid Vercel timeout
+const MAX_TRENDS = 8        // cap to avoid Vercel 60s timeout (8 × ~5s Claude = ~40s)
 const MAX_AGE_DAYS = 35    // only seed trends from the last 5 weeks (current + last month)
 
 interface DiscoveredTrend {
@@ -148,15 +148,16 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // ?reset=1 — wipe all curated Instagram seeds (Later.com entries use spike_pct=85)
+  // ?reset=1 — wipe all curated seeds then return immediately (call without reset to seed)
   if (request.nextUrl.searchParams.get('reset') === '1') {
-    await supabase.from('scored_trends')
-      .delete()
+    const { count: c1 } = await supabase.from('scored_trends')
+      .delete({ count: 'exact' })
       .eq('platform', 'instagram')
       .eq('spike_pct', 85)
-    await supabase.from('scored_trends')
-      .delete()
+    const { count: c2 } = await supabase.from('scored_trends')
+      .delete({ count: 'exact' })
       .like('source_url', '%instagram.com/reels/audio/%')
+    return NextResponse.json({ success: true, reset: true, deleted: (c1 ?? 0) + (c2 ?? 0) })
   }
 
   // Step 1 — scrape Later.com
