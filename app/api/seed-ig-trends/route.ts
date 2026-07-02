@@ -30,27 +30,38 @@ async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
   const trends: DiscoveredTrend[] = []
   const seenAudioIds = new Set<string>()
 
-  // Split on h2/h3 boundaries to get one section per trend
-  const sections = html.split(/<h[23][^>]*>/i).slice(1)
+  // Headings look like: <h3>Trend: The summer schedule — June 26, 2026</h3>
+  const sections = html.split(/<h3[^>]*>/i).slice(1)
 
   for (const section of sections) {
-    // Heading text (before the closing tag)
-    const headingMatch = section.match(/^([^<]{3,100})<\/h[23]>/i)
+    // Extract heading text before </h3>
+    const headingMatch = section.match(/^([^<]{3,150})<\/h3>/i)
     if (!headingMatch) continue
-    const trend_name = decodeHtmlEntities(headingMatch[1].trim())
-    if (trend_name.length < 3 || trend_name.length > 80) continue
 
-    // Audio link
+    // Must start with "Trend:" prefix
+    const rawHeading = headingMatch[1].trim()
+    if (!/^trend\s*:/i.test(rawHeading)) continue
+
+    // Strip "Trend: " prefix and " — Date" suffix → clean trend name
+    const trend_name = decodeHtmlEntities(
+      rawHeading
+        .replace(/^trend\s*:\s*/i, '')
+        .replace(/\s*[—–-]\s*\w+ \d+,? \d{4}\s*$/, '')
+        .trim()
+    )
+    if (!trend_name || trend_name.length < 3) continue
+
+    // Audio link — in <strong>Audio:</strong> paragraph
     const audioMatch = section.match(/instagram\.com\/reels\/audio\/(\d{8,})/)
     if (!audioMatch) continue
     const audio_id = audioMatch[1]
     if (seenAudioIds.has(audio_id)) continue
     seenAudioIds.add(audio_id)
 
-    // First paragraph as emotional hook
-    const paraMatch = section.match(/<p[^>]*>([\s\S]{20,500}?)<\/p>/i)
-    const rawHook = paraMatch
-      ? paraMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ')
+    // Emotional hook — text after <strong>Trend Recap:</strong>
+    const recapMatch = section.match(/<strong>\s*Trend Recap\s*:?\s*<\/strong>\s*([\s\S]{20,500}?)<\/p>/i)
+    const rawHook = recapMatch
+      ? recapMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ')
       : `Trending Instagram Reels format — ${trend_name}`
     const emotional_hook = decodeHtmlEntities(rawHook).slice(0, 200).trim()
 
