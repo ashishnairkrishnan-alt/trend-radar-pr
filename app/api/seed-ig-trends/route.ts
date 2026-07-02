@@ -34,19 +34,19 @@ async function scrapeLatertrendList(): Promise<DiscoveredTrend[]> {
   const sections = html.split(/<h3[^>]*>/i).slice(1)
 
   for (const section of sections) {
-    // Extract heading text before </h3>
-    const headingMatch = section.match(/^([^<]{3,150})<\/h3>/i)
+    // Extract heading text before </h3>, stripping any inner HTML tags
+    const headingMatch = section.match(/^([\s\S]*?)<\/h3>/i)
     if (!headingMatch) continue
+    const rawHeading = headingMatch[1].replace(/<[^>]+>/g, '').trim()
 
     // Must start with "Trend:" prefix
-    const rawHeading = headingMatch[1].trim()
     if (!/^trend\s*:/i.test(rawHeading)) continue
 
     // Strip "Trend: " prefix and " — Date" suffix → clean trend name
     const trend_name = decodeHtmlEntities(
       rawHeading
         .replace(/^trend\s*:\s*/i, '')
-        .replace(/\s*[—–-]\s*\w+ \d+,? \d{4}\s*$/, '')
+        .replace(/\s*[—–-]\s*\w+\.?\s+\d+,?\s*\d{4}\s*$/, '')
         .trim()
     )
     if (!trend_name || trend_name.length < 3) continue
@@ -167,6 +167,8 @@ export async function GET(request: NextRequest) {
     const trendCount = (html.match(/Trend:/gi) || []).length
     const sections = html.split(/<h3[^>]*>/i)
     const firstSection = sections[1]?.slice(0, 800) ?? 'no h3 found'
+    // Find first section that actually contains "Trend:"
+    const firstTrendSection = sections.find(s => /trend\s*:/i.test(s.slice(0, 200)))?.slice(0, 800) ?? 'none found'
     return NextResponse.json({
       status: res.status,
       htmlLength: html.length,
@@ -174,6 +176,7 @@ export async function GET(request: NextRequest) {
       audioCount,
       trendCount,
       firstH3Section: firstSection,
+      firstTrendSection,
       first500chars: html.slice(0, 500),
     })
   }
