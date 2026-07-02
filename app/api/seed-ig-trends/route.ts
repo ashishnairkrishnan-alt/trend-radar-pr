@@ -152,6 +152,32 @@ export async function GET(request: NextRequest) {
       .like('source_url', '%instagram.com/reels/audio/%')
   }
 
+  // ?debug=1 returns raw HTML snippet and parsed section count for diagnosis
+  if (request.nextUrl.searchParams.get('debug') === '1') {
+    const res = await fetch(LATER_URL, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+      signal: AbortSignal.timeout(20000),
+    })
+    const html = await res.text()
+    const h3count = (html.match(/<h3/gi) || []).length
+    const audioCount = (html.match(/reels\/audio/gi) || []).length
+    const trendCount = (html.match(/Trend:/gi) || []).length
+    const sections = html.split(/<h3[^>]*>/i)
+    const firstSection = sections[1]?.slice(0, 800) ?? 'no h3 found'
+    return NextResponse.json({
+      status: res.status,
+      htmlLength: html.length,
+      h3count,
+      audioCount,
+      trendCount,
+      firstH3Section: firstSection,
+      first500chars: html.slice(0, 500),
+    })
+  }
+
   // Step 1 — scrape Later.com for current trends
   let discovered: DiscoveredTrend[]
   try {
