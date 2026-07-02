@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { scoreNormalisedTrend } from '@/lib/scorer'
 import type { NormalisedTrend } from '@/lib/apify'
@@ -15,7 +15,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Visual loop format showing daily routines with multiple hook points — romanticising everyday summer life',
     engagement_volume: 95000,
     spike_pct: 85,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#the-summer-schedule',
+    source_url: 'https://www.instagram.com/explore/tags/summerschedule/',
   },
   {
     platform: 'instagram',
@@ -24,7 +24,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Confident product/service showcase highlighting brand offerings — set to Respect by Aretha Franklin',
     engagement_volume: 120000,
     spike_pct: 90,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#what-you-want',
+    source_url: 'https://www.instagram.com/explore/tags/whatyouwant/',
   },
   {
     platform: 'instagram',
@@ -33,7 +33,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Jumping or stomping to shift frame and reveal background text or scene changes — high-energy transition format',
     engagement_volume: 88000,
     spike_pct: 80,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#stomp-to-reveal',
+    source_url: 'https://www.instagram.com/explore/tags/stomptoreveал/',
   },
   {
     platform: 'instagram',
@@ -42,7 +42,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Contrast between self-conscious person and enthusiastic photographer doing extreme shoots — set to Speed Demon by Justin Bieber',
     engagement_volume: 105000,
     spike_pct: 88,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#too-shy-to-take-pics',
+    source_url: 'https://www.instagram.com/explore/tags/tooshytotakepics/',
   },
   {
     platform: 'instagram',
@@ -51,7 +51,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Posing questions then immediately showing yourself doing the activity fully committed — set to Human Nature by Michael Jackson',
     engagement_volume: 98000,
     spike_pct: 82,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#do-you-wanna',
+    source_url: 'https://www.instagram.com/explore/tags/doyouwanna/',
   },
   {
     platform: 'instagram',
@@ -60,7 +60,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Carrying entire life\'s essentials in one hand with confidence — set to I\'m Every Woman by Chaka Khan',
     engagement_volume: 115000,
     spike_pct: 92,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#girl-grip',
+    source_url: 'https://www.instagram.com/explore/tags/girlgrip/',
   },
   {
     platform: 'instagram',
@@ -69,7 +69,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Wiping lens to reveal new scene or transformation — clean, satisfying visual format for product reveals',
     engagement_volume: 78000,
     spike_pct: 75,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#lens-wipe-transition',
+    source_url: 'https://www.instagram.com/explore/tags/lenswipertransition/',
   },
   {
     platform: 'instagram',
@@ -78,7 +78,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Revealing alternate life paths from dream scenario to chaos to acceptance — relatable multi-outcome storytelling',
     engagement_volume: 72000,
     spike_pct: 70,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#plan-abc',
+    source_url: 'https://www.instagram.com/explore/tags/planabc/',
   },
   {
     platform: 'instagram',
@@ -87,7 +87,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Single word spread across carousel slides — swiping reveals the punchline. High completion rate format',
     engagement_volume: 82000,
     spike_pct: 78,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#stretched-word',
+    source_url: 'https://www.instagram.com/explore/tags/stretchedword/',
   },
   {
     platform: 'instagram',
@@ -96,9 +96,8 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Group striking signature poses while holding key items — rapid-fire person-to-person transitions, high-energy team content',
     engagement_volume: 135000,
     spike_pct: 95,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#jujutsu-kaisen',
+    source_url: 'https://www.instagram.com/explore/tags/jujutsukaisen/',
   },
-  // May 2026 carryover trends still gaining traction
   {
     platform: 'instagram',
     trend_name: "Don't Post Your Work, Post You Working",
@@ -106,7 +105,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Behind-the-scenes process content emphasising relatability over polished results — authenticity-first format gaining massive traction',
     engagement_volume: 145000,
     spike_pct: 98,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#dont-post-your-work',
+    source_url: 'https://www.instagram.com/explore/tags/postyouworking/',
   },
   {
     platform: 'instagram',
@@ -115,7 +114,7 @@ const JUNE_2026_TRENDS: Omit<NormalisedTrend, 'raw_data'>[] = [
     emotional_hook: 'Split-screen showing messy creation process alongside polished final product — transparency trend resonating across all categories',
     engagement_volume: 110000,
     spike_pct: 87,
-    source_url: 'https://later.com/blog/instagram-reels-trends/#process-vs-results',
+    source_url: 'https://www.instagram.com/explore/tags/processvsresults/',
   },
 ]
 
@@ -131,8 +130,15 @@ function getWeekNumber(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = createServerClient()
+
+  // ?reset=1 clears previously seeded Later.com trends before re-inserting with IG URLs
+  if (request.nextUrl.searchParams.get('reset') === '1') {
+    await supabase.from('scored_trends')
+      .delete()
+      .like('source_url', '%later.com%')
+  }
   const now = new Date()
   const week_number = getWeekNumber(now)
   const year = now.getFullYear()
