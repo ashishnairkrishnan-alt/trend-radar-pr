@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import TrendCard from '@/components/TrendCard'
 import FilterPills from '@/components/FilterPills'
 import { DashboardSkeleton } from '@/components/Skeleton'
-import { getBrowserClient } from '@/lib/supabase'
 import type { ScoredTrend, BrandKey } from '@/types'
 import { APP_CONFIG } from '@/lib/config'
 
@@ -99,19 +98,18 @@ export default function DashboardPage() {
 
   const fetchTrends = useCallback(async () => {
     setLoading(true)
-    const supabase = getBrowserClient()
-
-    const { data, error } = await supabase
-      .from('scored_trends')
-      .select('*')
-      .eq('week_number', weekNumber)
-      .eq('year', year)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('[dashboard] Failed to fetch trends:', error)
-    } else {
-      setTrends((data as ScoredTrend[]) || [])
+    try {
+      const res = await fetch(`/api/trends?week=${weekNumber}&year=${year}`)
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        console.error('[dashboard] Failed to fetch trends:', json.error)
+        setTrends([])
+      } else {
+        setTrends((json.trends as ScoredTrend[]) || [])
+      }
+    } catch (err) {
+      console.error('[dashboard] Failed to fetch trends:', err)
+      setTrends([])
     }
     setLoading(false)
   }, [weekNumber, year])
