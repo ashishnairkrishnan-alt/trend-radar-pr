@@ -1,4 +1,6 @@
-// Pure HTML template builder — no server-side imports, safe to use in client components
+// Pure HTML template builder — no server-side imports, safe to use in client components.
+// Built with tables + inline styles for maximum email-client compatibility (Outlook, Gmail, Apple Mail).
+// NOTE: never use flexbox/grid here — Outlook renders with Word's engine and ignores them.
 import { BRANDS, APP_CONFIG } from './config'
 import type { ScoredTrend } from '@/types'
 
@@ -18,23 +20,71 @@ function platformBadge(platform: string): string {
   const isIG = platform === 'instagram'
   const bg = isIG ? COLORS.ig : COLORS.tt
   const label = isIG ? 'IG' : 'TT'
-  return `<span style="background:${bg};color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:0.05em;font-family:Arial,sans-serif;">${label}</span>`
+  return `<span style="background:${bg};color:#ffffff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:0.05em;font-family:Arial,sans-serif;">${label}</span>`
+}
+
+// Decide the source-link label from the URL shape.
+function sourceLinkLabel(url: string, platform: string): string {
+  try {
+    const u = new URL(url)
+    const parts = u.pathname.split('/').filter(Boolean)
+    if (u.hostname.includes('instagram')) {
+      if (parts[0] === 'reels' && parts[1] === 'audio') return '♫ Trending audio'
+      if (parts[0] === 'reel') return 'View Reel'
+      if (parts[0] === 'p') return 'View Post'
+      return 'View on Instagram'
+    }
+    if (u.hostname.includes('tiktok')) {
+      if (parts[0] === 'music') return '♫ Trending audio'
+      if (u.pathname.includes('/video/')) return 'Watch video'
+      if (u.pathname.includes('/search')) return 'Explore on TikTok'
+      return 'View on TikTok'
+    }
+    return 'View source'
+  } catch {
+    return 'View source'
+  }
+}
+
+function sourceButton(trend: ScoredTrend): string {
+  if (!trend.source_url) return ''
+  const isIG = trend.platform === 'instagram'
+  const bg = isIG ? COLORS.ig : COLORS.tt
+  const label = sourceLinkLabel(trend.source_url, trend.platform)
+  // Table-wrapped button (bulletproof for Outlook)
+  return `
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;">
+        <tr>
+          <td style="border-radius:6px;background:${bg};">
+            <a href="${trend.source_url}" target="_blank" style="display:inline-block;padding:8px 16px;font-size:12px;font-weight:700;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;border-radius:6px;">
+              ${label} &nbsp;&rarr;
+            </a>
+          </td>
+        </tr>
+      </table>`
 }
 
 function scoreBars(trend: ScoredTrend): string {
   return BRANDS.map((brand) => {
     const score = trend[brand.scoreField] as number
-    const pct = (score / 5) * 100
+    const pct = Math.round((score / 5) * 100)
     return `
-      <div style="margin-bottom:6px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-          <span style="font-size:10px;color:${COLORS.muted};font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.08em;">${brand.name}</span>
-          <span style="font-size:10px;font-weight:700;color:${brand.color};font-family:Arial,sans-serif;">${score}/5</span>
-        </div>
-        <div style="background:#E5E7EB;border-radius:4px;height:6px;width:100%;">
-          <div style="background:${brand.color};border-radius:4px;height:6px;width:${pct}%;"></div>
-        </div>
-      </div>`
+      <tr>
+        <td style="padding:3px 0;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+              <td style="font-size:10px;color:${COLORS.muted};font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.06em;">${brand.name}</td>
+              <td align="right" style="font-size:10px;font-weight:700;color:${brand.color};font-family:Arial,sans-serif;">${score}/5</td>
+            </tr>
+          </table>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:2px;background:#E5E7EB;border-radius:4px;">
+            <tr>
+              <td style="height:6px;line-height:6px;font-size:0;background:${brand.color};border-radius:4px;width:${pct}%;">&nbsp;</td>
+              <td style="height:6px;line-height:6px;font-size:0;width:${100 - pct}%;">&nbsp;</td>
+            </tr>
+          </table>
+        </td>
+      </tr>`
   }).join('')
 }
 
@@ -46,29 +96,54 @@ function trendCard(trend: ScoredTrend): string {
   const topBrandColor = topBrandObj?.color || COLORS.gold
 
   return `
-  <div style="background:${COLORS.white};border-radius:10px;margin-bottom:20px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);border-left:4px solid ${COLORS.gold};">
-    <div style="padding:16px 20px 12px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div style="flex:1;">
-          <div style="margin-bottom:6px;">${platformBadge(trend.platform)}</div>
-          <div style="font-size:17px;font-weight:700;color:${COLORS.text};font-family:Georgia,serif;line-height:1.3;">${trend.trend_name}</div>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${COLORS.white};border-radius:10px;margin-bottom:20px;border-left:4px solid ${COLORS.gold};">
+    <tr>
+      <td style="padding:18px 20px;">
+
+        <!-- Top row: platform badge + spike -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+          <tr>
+            <td valign="middle">${platformBadge(trend.platform)}</td>
+            <td valign="middle" align="right">
+              <span style="background:${COLORS.gold};color:${COLORS.navy};font-size:13px;font-weight:800;padding:4px 10px;border-radius:6px;font-family:Arial,sans-serif;">+${trend.spike_pct}%</span>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Trend name -->
+        <div style="font-size:18px;font-weight:700;color:${COLORS.text};font-family:Georgia,serif;line-height:1.3;margin-top:12px;">${trend.trend_name}</div>
+
+        <!-- Emotional hook -->
+        <div style="font-size:13px;color:${COLORS.muted};font-family:Arial,sans-serif;font-style:italic;line-height:1.5;margin-top:6px;">${trend.emotional_hook}</div>
+
+        <!-- Source link button -->
+        ${sourceButton(trend)}
+
+        <!-- Brand scores -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${COLORS.bg};border-radius:8px;margin-top:16px;">
+          <tr><td style="padding:12px 14px;">
+            <div style="font-size:10px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Arial,sans-serif;margin-bottom:6px;">Brand Relevance</div>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${scoreBars(trend)}</table>
+          </td></tr>
+        </table>
+
+        <!-- Best fit -->
+        <div style="margin-top:14px;">
+          <span style="font-size:10px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Arial,sans-serif;">Best fit:&nbsp;</span>
+          <span style="background:${topBrandColor}22;color:${topBrandColor};font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:Arial,sans-serif;">${trend.top_brand}</span>
         </div>
-        <div style="text-align:right;margin-left:16px;flex-shrink:0;">
-          <div style="background:${COLORS.gold};color:${COLORS.navy};font-size:13px;font-weight:800;padding:4px 10px;border-radius:6px;font-family:Arial,sans-serif;">+${trend.spike_pct}%</div>
+
+        <!-- Opportunity note -->
+        <div style="font-size:13px;color:${COLORS.text};font-style:italic;font-family:Georgia,serif;margin-top:12px;line-height:1.5;">&ldquo;${trend.opportunity_note}&rdquo;</div>
+
+        <!-- Content angle -->
+        <div style="margin-top:12px;">
+          <span style="display:inline-block;background:${COLORS.navy};color:${COLORS.gold};font-size:11px;padding:5px 12px;border-radius:20px;font-family:Arial,sans-serif;font-weight:600;">${trend.content_angle}</span>
         </div>
-      </div>
-      <div style="font-size:13px;color:${COLORS.muted};font-family:Arial,sans-serif;font-style:italic;line-height:1.5;margin-bottom:12px;">${trend.emotional_hook}</div>
-      <div style="background:${COLORS.bg};border-radius:8px;padding:12px 14px;margin-bottom:12px;">
-        ${scoreBars(trend)}
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <span style="font-size:10px;color:${COLORS.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Arial,sans-serif;">Best fit:</span>
-        <span style="background:${topBrandColor}22;color:${topBrandColor};font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:Arial,sans-serif;">${trend.top_brand}</span>
-      </div>
-      <div style="font-size:13px;color:${COLORS.text};font-style:italic;font-family:Georgia,serif;margin-bottom:10px;line-height:1.5;">"${trend.opportunity_note}"</div>
-      <div style="display:inline-block;background:${COLORS.navy};color:${COLORS.gold};font-size:11px;padding:4px 12px;border-radius:20px;font-family:Arial,sans-serif;font-weight:600;">${trend.content_angle}</div>
-    </div>
-  </div>`
+
+      </td>
+    </tr>
+  </table>`
 }
 
 function groupByTopBrand(trends: ScoredTrend[]): Record<string, ScoredTrend[]> {
@@ -96,45 +171,77 @@ export function buildDigestHtml(trends: ScoredTrend[], weekNumber: number, year:
       )
       const color = brandObj?.color || COLORS.gold
       return `
-        <div style="margin-bottom:32px;">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid ${color}22;">
-            <div style="width:10px;height:10px;border-radius:50%;background:${color};"></div>
-            <h2 style="margin:0;font-size:16px;font-weight:700;color:${COLORS.text};font-family:Georgia,serif;text-transform:uppercase;letter-spacing:0.08em;">${brand}</h2>
-            <span style="font-size:12px;color:${COLORS.muted};font-family:Arial,sans-serif;">${brandTrends.length} trend${brandTrends.length > 1 ? 's' : ''}</span>
-          </div>
+        <div style="margin-bottom:28px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:14px;border-bottom:2px solid ${color}33;">
+            <tr>
+              <td style="padding-bottom:8px;">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};vertical-align:middle;">&nbsp;</span>
+                <span style="font-size:15px;font-weight:700;color:${COLORS.text};font-family:Georgia,serif;text-transform:uppercase;letter-spacing:0.08em;vertical-align:middle;margin-left:8px;">${brand}</span>
+                <span style="font-size:12px;color:${COLORS.muted};font-family:Arial,sans-serif;vertical-align:middle;margin-left:8px;">${brandTrends.length} trend${brandTrends.length > 1 ? 's' : ''}</span>
+              </td>
+            </tr>
+          </table>
           ${brandTrends.map(trendCard).join('')}
         </div>`
     })
     .join('')
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>Trend Radar — Week ${weekNumber} ${APP_CONFIG.fiscalYear}</title>
+  <!--[if mso]>
+  <style type="text/css">table{border-collapse:collapse;}</style>
+  <![endif]-->
 </head>
 <body style="margin:0;padding:0;background:${COLORS.bg};font-family:Arial,sans-serif;">
-  <div style="max-width:640px;margin:0 auto;background:${COLORS.bg};">
-    <div style="background:${COLORS.navy};padding:28px 32px;text-align:center;">
-      <div style="font-size:11px;color:${COLORS.gold};letter-spacing:0.2em;text-transform:uppercase;font-family:Arial,sans-serif;margin-bottom:6px;">Pernod Ricard Middle East</div>
-      <h1 style="margin:0 0 4px;font-size:28px;font-weight:700;color:${COLORS.white};font-family:Georgia,serif;">Trend Radar</h1>
-      <div style="font-size:16px;color:${COLORS.gold};font-family:Georgia,serif;margin-bottom:12px;">Week ${weekNumber} · ${APP_CONFIG.fiscalYear}</div>
-      <div style="font-size:12px;color:#8A9CC0;font-family:Arial,sans-serif;">${sendDate}</div>
-    </div>
-    <div style="background:${COLORS.cream};padding:14px 32px;border-bottom:1px solid #E8E0D0;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:${COLORS.muted};font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.1em;">This week's top trends</span>
-        <span style="font-size:20px;font-weight:800;color:${COLORS.gold};font-family:Arial,sans-serif;">${trends.length}</span>
-      </div>
-    </div>
-    <div style="padding:28px 24px;">${brandSections}</div>
-    <div style="background:${COLORS.navy};padding:24px 32px;text-align:center;">
-      <div style="font-size:11px;color:#8A9CC0;font-family:Arial,sans-serif;margin-bottom:4px;">Powered by AI — Pernod Ricard Middle East Social Listening</div>
-      <div style="font-size:10px;color:#4A5568;font-family:Arial,sans-serif;">This digest is generated automatically every Monday morning. Reply to unsubscribe.</div>
-    </div>
-  </div>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${COLORS.bg};">
+    <tr>
+      <td align="center" style="padding:0;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="640" style="max-width:640px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:${COLORS.navy};padding:30px 32px;text-align:center;">
+              <div style="font-size:11px;color:${COLORS.gold};letter-spacing:0.2em;text-transform:uppercase;font-family:Arial,sans-serif;margin-bottom:8px;">Pernod Ricard Middle East</div>
+              <div style="font-size:30px;font-weight:700;color:${COLORS.white};font-family:Georgia,serif;letter-spacing:0.02em;">Trend Radar</div>
+              <div style="font-size:16px;color:${COLORS.gold};font-family:Georgia,serif;margin-top:4px;">Week ${weekNumber} &middot; ${APP_CONFIG.fiscalYear}</div>
+              <div style="font-size:12px;color:#8A9CC0;font-family:Arial,sans-serif;margin-top:10px;">${sendDate}</div>
+            </td>
+          </tr>
+
+          <!-- Summary bar -->
+          <tr>
+            <td style="background:${COLORS.cream};padding:14px 32px;border-bottom:1px solid #E8E0D0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:12px;color:${COLORS.muted};font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:0.1em;">This week's top trends</td>
+                  <td align="right" style="font-size:22px;font-weight:800;color:${COLORS.gold};font-family:Arial,sans-serif;">${trends.length}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:28px 24px;background:${COLORS.bg};">${brandSections}</td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:${COLORS.navy};padding:24px 32px;text-align:center;">
+              <div style="font-size:11px;color:#8A9CC0;font-family:Arial,sans-serif;margin-bottom:4px;">Powered by AI &mdash; Pernod Ricard Middle East Social Listening</div>
+              <div style="font-size:10px;color:#5A6a88;font-family:Arial,sans-serif;">This digest is generated automatically every Monday morning.</div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`
 }
-
