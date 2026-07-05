@@ -180,6 +180,15 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  // ?refresh=1 — safe weekly reset. We only reach here AFTER a successful scrape
+  // returned fresh trends, so clearing old seeds now can never leave the DB empty.
+  if (request.nextUrl.searchParams.get('refresh') === '1') {
+    await supabase.from('scored_trends').delete()
+      .eq('platform', 'instagram').eq('spike_pct', 85)
+    await supabase.from('scored_trends').delete()
+      .like('source_url', '%instagram.com/reels/audio/%')
+  }
+
   // Step 2 — dedup against existing source_urls
   const urls = discovered.map(t => t.source_url)
   const { data: existing } = await supabase

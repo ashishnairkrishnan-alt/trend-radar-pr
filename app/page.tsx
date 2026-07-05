@@ -15,7 +15,22 @@ function getWeekNumber(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
 
-function EmptyState({ filtered }: { filtered: boolean }) {
+function EmptyState({ filtered, onReload }: { filtered: boolean; onReload: () => void }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleReload = async () => {
+    setLoading(true)
+    try {
+      // Repopulate from Later.com (safe: only clears old data after a successful scrape)
+      await fetch('/api/seed-ig-trends?refresh=1')
+      await fetch('/api/seed-tt-trends?refresh=1')
+    } catch {
+      /* surfaced via the reload below */
+    }
+    setLoading(false)
+    onReload()
+  }
+
   return (
     <div className="col-span-2 py-24 text-center">
       <div className="w-16 h-16 rounded-full bg-pr-cream border border-pr-gold/20 flex items-center justify-center mx-auto mb-4">
@@ -31,15 +46,22 @@ function EmptyState({ filtered }: { filtered: boolean }) {
       <p className="text-sm text-pr-muted max-w-xs mx-auto mb-6">
         {filtered
           ? 'Try changing the brand or platform filter.'
-          : 'Scraping runs Sunday night. You can seed mock data to test the dashboard.'}
+          : 'Trends refresh automatically every Monday. You can also reload them now.'}
       </p>
       {!filtered && (
-        <a
-          href="/api/ingest/test"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-pr-navy text-white text-sm font-semibold hover:bg-pr-navy/90 transition-colors"
+        <button
+          onClick={handleReload}
+          disabled={loading}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-pr-navy text-white text-sm font-semibold hover:bg-pr-navy/90 transition-colors disabled:opacity-60"
         >
-          Load mock data
-        </a>
+          {loading && (
+            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          )}
+          {loading ? 'Reloading trends…' : 'Reload trends'}
+        </button>
       )}
     </div>
   )
@@ -173,7 +195,7 @@ export default function DashboardPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {filtered.length === 0 ? (
-            <EmptyState filtered={isFiltered} />
+            <EmptyState filtered={isFiltered} onReload={fetchTrends} />
           ) : (
             filtered.map((trend) => <TrendCard key={trend.id} trend={trend} />)
           )}
