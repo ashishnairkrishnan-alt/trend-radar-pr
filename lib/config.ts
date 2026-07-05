@@ -3,6 +3,7 @@ import type { Brand, BrandKey } from '@/types'
 // ─── Email Recipients ─────────────────────────────────────────────────────────
 // Edit this list to add / remove digest recipients
 export const DIGEST_RECIPIENTS: string[] = [
+  'ashish.krishnan-ext@pernod-ricard.com',
   'andres.ruiz@pernod-ricard.com',
   'Myriam.Zaouche-ext@pernod-ricard.com',
   'aditya.sachdev-ext@pernod-ricard.com',
