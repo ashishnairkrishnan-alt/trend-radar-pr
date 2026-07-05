@@ -1,7 +1,6 @@
 ﻿'use client'
 
 import { useState, useEffect } from 'react'
-import { getBrowserClient } from '@/lib/supabase'
 import type { DigestLog, ScoredTrend } from '@/types'
 import dynamic from 'next/dynamic'
 
@@ -37,15 +36,14 @@ export default function HistoryPage() {
 
   useEffect(() => {
     const fetchLogs = async () => {
-      const supabase = getBrowserClient()
-      const { data, error } = await supabase
-        .from('digest_log')
-        .select('*')
-        .order('sent_at', { ascending: false })
-        .limit(20)
-
-      if (error) console.error('[history] Failed to fetch logs:', error)
-      else setLogs((data as DigestLog[]) || [])
+      try {
+        const res = await fetch('/api/digest-log')
+        const json = await res.json()
+        if (!res.ok || !json.success) console.error('[history] Failed to fetch logs:', json.error)
+        else setLogs((json.logs as DigestLog[]) || [])
+      } catch (err) {
+        console.error('[history] Failed to fetch logs:', err)
+      }
       setLoading(false)
     }
     fetchLogs()
@@ -59,16 +57,14 @@ export default function HistoryPage() {
     const weekNumber = getWeekNumber(sentDate)
     const year = sentDate.getFullYear()
 
-    const supabase = getBrowserClient()
-    const { data, error } = await supabase
-      .from('scored_trends')
-      .select('*')
-      .eq('week_number', weekNumber)
-      .eq('year', year)
-      .limit(10)
-
-    if (error) console.error('[history] Failed to fetch preview trends:', error)
-    else setPreviewTrends((data as ScoredTrend[]) || [])
+    try {
+      const res = await fetch(`/api/trends?week=${weekNumber}&year=${year}`)
+      const json = await res.json()
+      if (!res.ok || !json.success) console.error('[history] Failed to fetch preview trends:', json.error)
+      else setPreviewTrends(((json.trends as ScoredTrend[]) || []).slice(0, 10))
+    } catch (err) {
+      console.error('[history] Failed to fetch preview trends:', err)
+    }
     setLoadingPreview(false)
   }
 
