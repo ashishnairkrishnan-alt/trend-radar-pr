@@ -19,6 +19,20 @@ export async function GET(request: NextRequest) {
   const week = Number(params.get('week')) || getWeekNumber(now)
   const year = Number(params.get('year')) || now.getFullYear()
 
+  // ?diag=1 — dump the actual week/year values present so we can see why a filter misses
+  if (params.get('diag') === '1') {
+    const supabase = createServerClient()
+    const { data } = await supabase
+      .from('scored_trends')
+      .select('week_number, year, trend_name')
+    const groups: Record<string, number> = {}
+    for (const r of data || []) {
+      const key = `w${r.week_number}(${typeof r.week_number}) y${r.year}(${typeof r.year})`
+      groups[key] = (groups[key] || 0) + 1
+    }
+    return NextResponse.json({ total: data?.length ?? 0, groups, sample: (data || []).slice(0, 3) })
+  }
+
   try {
     const supabase = createServerClient()
     const { data, error } = await supabase
