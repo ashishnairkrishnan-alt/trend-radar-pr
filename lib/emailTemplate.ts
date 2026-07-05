@@ -16,6 +16,10 @@ const COLORS = {
   tt: '#010101',
 }
 
+// Absolute URL to the logo (emails require absolute, publicly-reachable image URLs)
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://trend-radar-pr.vercel.app'
+const LOGO_URL = `${APP_URL}/logo.png`
+
 function platformBadge(platform: string): string {
   const isIG = platform === 'instagram'
   const bg = isIG ? COLORS.ig : COLORS.tt
@@ -202,6 +206,13 @@ export function buildDigestHtml(trends: ScoredTrend[], weekNumber: number, year:
     <tr>
       <td align="center" style="padding:0;">
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="640" style="max-width:640px;width:100%;">
+
+          <!-- Logo band (white, matches dashboard) -->
+          <tr>
+            <td style="background:${COLORS.white};padding:18px 32px;text-align:center;border-bottom:1px solid #E8E0D0;">
+              <img src="${LOGO_URL}" alt="Pernod Ricard" width="150" style="display:inline-block;width:150px;height:auto;border:0;" />
+            </td>
+          </tr>
 
           <!-- Header -->
           <tr>
