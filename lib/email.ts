@@ -20,23 +20,28 @@ const FROM_EMAIL = () => process.env.RESEND_FROM_EMAIL || 'trend-radar@pernodric
 export async function sendDigestEmail(
   trends: ScoredTrend[],
   weekNumber: number,
-  year: number
+  year: number,
+  recipientsOverride?: string[]
 ): Promise<{ success: boolean; messageIds?: string[]; error?: string }> {
-  if (DIGEST_RECIPIENTS.length === 0) {
+  const recipients = recipientsOverride && recipientsOverride.length > 0
+    ? recipientsOverride
+    : DIGEST_RECIPIENTS
+  if (recipients.length === 0) {
     return { success: false, error: 'No recipients configured' }
   }
 
+  const isTest = !!(recipientsOverride && recipientsOverride.length > 0)
   const html = buildDigestHtml(trends, weekNumber, year)
-  const subject = `Trend Radar — Week ${weekNumber} ${APP_CONFIG.fiscalYear} | ${trends.length} Trends Scored`
+  const subject = `${isTest ? '[TEST] ' : ''}Trend Radar — Week ${weekNumber} ${APP_CONFIG.fiscalYear} | ${trends.length} Trends Scored`
   const resend = getResendClient()
   const fromEmail = FROM_EMAIL()
 
-  console.log(`[email] Sending digest to ${DIGEST_RECIPIENTS.length} recipients`)
+  console.log(`[email] Sending digest to ${recipients.length} recipients${isTest ? ' (TEST)' : ''}`)
 
   try {
     const messageIds: string[] = []
 
-    for (const recipient of DIGEST_RECIPIENTS) {
+    for (const recipient of recipients) {
       const { data, error } = await resend.emails.send({
         from: fromEmail,
         to: recipient,

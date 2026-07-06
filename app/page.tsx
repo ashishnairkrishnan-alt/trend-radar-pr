@@ -67,44 +67,75 @@ function EmptyState({ filtered, onReload }: { filtered: boolean; onReload: () =>
   )
 }
 
-function SendDigestButton() {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+function Spinner() {
+  return (
+    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  )
+}
 
-  const handleSend = async () => {
-    setStatus('loading')
+function SendDigestButtons() {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+
+  const send = async (
+    test: boolean,
+    setState: (s: 'idle' | 'loading' | 'done' | 'error') => void
+  ) => {
+    setState('loading')
     try {
-      const res = await fetch('/api/digest', { method: 'POST' })
-      setStatus(res.ok ? 'done' : 'error')
-      setTimeout(() => setStatus('idle'), 3000)
+      const res = await fetch(`/api/digest${test ? '?test=1' : ''}`, { method: 'POST' })
+      setState(res.ok ? 'done' : 'error')
     } catch {
-      setStatus('error')
-      setTimeout(() => setStatus('idle'), 3000)
+      setState('error')
     }
+    setTimeout(() => setState('idle'), 3000)
   }
 
+  const testLabel = testStatus === 'idle' ? 'Send Test'
+    : testStatus === 'loading' ? 'Sending…'
+    : testStatus === 'done' ? 'Test sent!'
+    : 'Failed'
+
   const label = status === 'idle' ? 'Send Digest'
-    : status === 'loading' ? 'Sending...'
+    : status === 'loading' ? 'Sending…'
     : status === 'done' ? 'Sent!'
     : 'Failed'
 
   return (
-    <button
-      onClick={handleSend}
-      disabled={status === 'loading'}
-      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-60 ${
-        status === 'done' ? 'bg-brand-jameson text-white'
-        : status === 'error' ? 'bg-red-500 text-white'
-        : 'bg-pr-gold text-pr-navy hover:bg-pr-gold/90'
-      }`}
-    >
-      {status === 'loading' && (
-        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-      )}
-      {label}
-    </button>
+    <div className="flex items-center gap-2">
+      {/* Send Test — only to the test address */}
+      <button
+        onClick={() => send(true, setTestStatus)}
+        disabled={testStatus === 'loading'}
+        title="Send only to the test address"
+        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-60 border ${
+          testStatus === 'done' ? 'bg-brand-jameson text-white border-transparent'
+          : testStatus === 'error' ? 'bg-red-500 text-white border-transparent'
+          : 'bg-white text-pr-navy border-pr-navy/20 hover:bg-pr-cream'
+        }`}
+      >
+        {testStatus === 'loading' && <Spinner />}
+        {testLabel}
+      </button>
+
+      {/* Send Digest — to the full recipient list */}
+      <button
+        onClick={() => send(false, setStatus)}
+        disabled={status === 'loading'}
+        title="Send to all recipients"
+        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-60 ${
+          status === 'done' ? 'bg-brand-jameson text-white'
+          : status === 'error' ? 'bg-red-500 text-white'
+          : 'bg-pr-gold text-pr-navy hover:bg-pr-gold/90'
+        }`}
+      >
+        {status === 'loading' && <Spinner />}
+        {label}
+      </button>
+    </div>
   )
 }
 
@@ -175,7 +206,7 @@ export default function DashboardPage() {
           <span className="text-xs text-pr-muted">
             {!loading && `${filtered.length} trend${filtered.length !== 1 ? 's' : ''}`}
           </span>
-          <SendDigestButton />
+          <SendDigestButtons />
         </div>
       </div>
 

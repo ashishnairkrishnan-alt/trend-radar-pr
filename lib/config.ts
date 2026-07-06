@@ -10,6 +10,9 @@ export const DIGEST_RECIPIENTS: string[] = [
   // Add more recipients here
 ]
 
+// Address used by the "Send Test" button — preview the digest without emailing the team
+export const TEST_RECIPIENT = 'ashish.krishnan-ext@pernod-ricard.com'
+
 // ─── Brands ──────────────────────────────────────────────────────────────────
 export const BRANDS: Brand[] = [
   {

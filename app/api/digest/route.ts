@@ -1,7 +1,7 @@
-﻿import { NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { sendDigestEmail } from '@/lib/email'
-import { DIGEST_RECIPIENTS, APP_CONFIG } from '@/lib/config'
+import { DIGEST_RECIPIENTS, TEST_RECIPIENT, APP_CONFIG } from '@/lib/config'
 import type { ScoredTrend } from '@/types'
 
 function getWeekNumber(date: Date): number {
@@ -12,8 +12,11 @@ function getWeekNumber(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
 
-export async function POST() {
-  console.log('[digest] Starting digest generation')
+export async function POST(request: NextRequest) {
+  // ?test=1 — send only to the test address (preview without emailing the team)
+  const isTest = request.nextUrl.searchParams.get('test') === '1'
+  const recipients = isTest ? [TEST_RECIPIENT] : DIGEST_RECIPIENTS
+  console.log(`[digest] Starting digest generation${isTest ? ' (TEST mode)' : ''}`)
 
   const supabase = createServerClient()
   const now = new Date()
@@ -53,23 +56,24 @@ export async function POST() {
   const top = sorted.slice(0, APP_CONFIG.topTrendsPerDigest)
   console.log(`[digest] Selected ${top.length} trends for digest`)
 
-  // Log a pending digest entry
-  const { data: logEntry, error: logError } = await supabase
-    .from('digest_log')
-    .insert({
-      recipient_count: DIGEST_RECIPIENTS.length,
-      trend_count: top.length,
-      status: 'pending',
-    })
-    .select()
-    .single()
-
-  if (logError) {
-    console.error('[digest] Failed to create digest log entry:', logError)
+  // Log a pending digest entry (skip logging for test sends to keep history clean)
+  let logEntry: { id: string } | null = null
+  if (!isTest) {
+    const { data, error: logError } = await supabase
+      .from('digest_log')
+      .insert({
+        recipient_count: recipients.length,
+        trend_count: top.length,
+        status: 'pending',
+      })
+      .select()
+      .single()
+    if (logError) console.error('[digest] Failed to create digest log entry:', logError)
+    else logEntry = data
   }
 
   // Send the email
-  const result = await sendDigestEmail(top, weekNumber, year)
+  const result = await sendDigestEmail(top, weekNumber, year, isTest ? recipients : undefined)
 
   // Update log entry status
   if (logEntry) {
@@ -87,18 +91,19 @@ export async function POST() {
     )
   }
 
-  console.log(`[digest] Digest sent successfully. Recipients: ${DIGEST_RECIPIENTS.length}, Trends: ${top.length}`)
+  console.log(`[digest] Digest sent successfully. Recipients: ${recipients.length}, Trends: ${top.length}${isTest ? ' (TEST)' : ''}`)
 
   return NextResponse.json({
     success: true,
+    test: isTest,
     week: weekNumber,
     year,
     trendCount: top.length,
-    recipientCount: DIGEST_RECIPIENTS.length,
+    recipientCount: recipients.length,
   })
 }
 
-// GET for dashboard "Send Digest" button
-export async function GET() {
-  return POST()
+// GET for dashboard "Send Digest" / "Send Test" buttons
+export async function GET(request: NextRequest) {
+  return POST(request)
 }
