@@ -3,11 +3,11 @@ import type { Brand, BrandKey } from '@/types'
 // ─── Email Recipients ─────────────────────────────────────────────────────────
 // Edit this list to add / remove digest recipients
 export const DIGEST_RECIPIENTS: string[] = [
-  'ashish.krishnan-ext@pernod-ricard.com',
-  'andres.ruiz@pernod-ricard.com',
+  // TEMPORARY: only the two who missed today's send — RESTORE the full list below after.
   'Myriam.Zaouche-ext@pernod-ricard.com',
   'aditya.sachdev-ext@pernod-ricard.com',
-  // Add more recipients here
+  // 'ashish.krishnan-ext@pernod-ricard.com',
+  // 'andres.ruiz@pernod-ricard.com',
 ]
 
 // Address used by the "Send Test" button — preview the digest without emailing the team
