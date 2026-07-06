@@ -40,23 +40,44 @@ export async function sendDigestEmail(
 
   try {
     const messageIds: string[] = []
+    const failed: string[] = []
 
-    for (const recipient of recipients) {
-      const { data, error } = await resend.emails.send({
-        from: fromEmail,
-        to: recipient,
-        subject,
-        html,
-      })
+    for (let i = 0; i < recipients.length; i++) {
+      const recipient = recipients[i]
 
-      if (error) {
-        console.error(`[email] Failed to send to ${recipient}:`, error)
-      } else {
-        messageIds.push(data?.id || '')
-        console.log(`[email] Sent to ${recipient}: ${data?.id}`)
+      // Throttle to respect Resend's rate limit (~2 req/s). Without this, the
+      // 3rd+ recipients in a tight loop get 429s and silently miss the email.
+      if (i > 0) await new Promise((r) => setTimeout(r, 600))
+
+      // Retry once on failure (covers a transient rate-limit hit)
+      let sent = false
+      for (let attempt = 0; attempt < 2 && !sent; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 800))
+        const { data, error } = await resend.emails.send({
+          from: fromEmail,
+          to: recipient,
+          subject,
+          html,
+        })
+        if (error) {
+          console.error(`[email] Failed to send to ${recipient} (attempt ${attempt + 1}):`, error)
+        } else {
+          messageIds.push(data?.id || '')
+          console.log(`[email] Sent to ${recipient}: ${data?.id}`)
+          sent = true
+        }
       }
+      if (!sent) failed.push(recipient)
     }
 
+    // Only a true success if every recipient received it
+    if (failed.length > 0) {
+      return {
+        success: false,
+        messageIds,
+        error: `Failed to send to ${failed.length}/${recipients.length}: ${failed.join(', ')}`,
+      }
+    }
     return { success: true, messageIds }
   } catch (err) {
     console.error('[email] Resend error:', err)
