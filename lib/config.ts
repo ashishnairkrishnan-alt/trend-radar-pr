@@ -13,6 +13,9 @@ export const DIGEST_RECIPIENTS: string[] = [
 // Address used by the "Send Test" button — preview the digest without emailing the team
 export const TEST_RECIPIENT = 'ashish.krishnan-ext@pernod-ricard.com'
 
+// Address that receives failure alerts if the Monday digest doesn't go out
+export const ALERT_RECIPIENT = 'ashish.krishnan-ext@pernod-ricard.com'
+
 // ─── Brands ──────────────────────────────────────────────────────────────────
 export const BRANDS: Brand[] = [
   {

@@ -1,5 +1,5 @@
 import { Resend } from 'resend'
-import { DIGEST_RECIPIENTS } from './config'
+import { DIGEST_RECIPIENTS, ALERT_RECIPIENT } from './config'
 import { buildDigestHtml } from './emailTemplate'
 import type { ScoredTrend } from '@/types'
 import { APP_CONFIG } from './config'
@@ -16,6 +16,31 @@ function getResendClient() {
 }
 
 const FROM_EMAIL = () => process.env.RESEND_FROM_EMAIL || 'trend-radar@pernodricard.com'
+
+// Plain failure alert — used by the Monday watchdog when the digest didn't go out.
+export async function sendAlertEmail(
+  subject: string,
+  message: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const resend = getResendClient()
+    const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#1A2B4A;line-height:1.6;">
+      <h2 style="color:#B00020;margin:0 0 12px;">⚠️ Trend Radar Alert</h2>
+      <p style="margin:0 0 12px;">${message}</p>
+      <p style="margin:0;color:#8A94A6;font-size:12px;">Sent automatically by the Trend Radar watchdog. Check the dashboard and Resend logs, then use Settings → Send to All Recipients if needed.</p>
+    </div>`
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL(),
+      to: ALERT_RECIPIENT,
+      subject: `⚠️ ${subject}`,
+      html,
+    })
+    if (error) return { success: false, error: String(error) }
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: String(err) }
+  }
+}
 
 export async function sendDigestEmail(
   trends: ScoredTrend[],
