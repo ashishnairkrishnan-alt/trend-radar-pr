@@ -27,6 +27,11 @@ Scoring rules:
 4. Score 4-5 only if the brand could authentically own this content space
 5. top_brand must be one of: "Chivas Regal", "Absolut Vodka", "Jameson", "The Glenlivet"
 
+Production format:
+- Also decide the best production format to execute this trend: "Reel", "Carousel", or "Static".
+- Reel = motion/audio/transition-led idea. Carousel = multi-panel, step-by-step, list, or before/after idea. Static = a single strong image or quote-card idea.
+- Choose based on what the trend IS, not the platform it was found on.
+
 Return JSON in exactly this format:
 {
   "chivas_score": number 1-5,
@@ -35,7 +40,8 @@ Return JSON in exactly this format:
   "glenlivet_score": number 1-5,
   "top_brand": string,
   "opportunity_note": string (max 20 words — specific action the brand should take),
-  "content_angle": string (max 15 words — the exact reel or post format)
+  "content_angle": string (max 15 words — the exact reel or post format),
+  "content_format": "Reel" | "Carousel" | "Static"
 }`
 
 // ─── Rich TikTok post scoring (trending feed pipeline) ───────────────────────
@@ -103,6 +109,10 @@ Score this trend for all four brands based on cultural territory fit.`
   for (const key of ['chivas_score', 'absolut_score', 'jameson_score', 'glenlivet_score'] as const) {
     const val = parsed[key]
     if (typeof val !== 'number' || val < 1 || val > 5) throw new Error(`Invalid score for ${key}: ${val}`)
+  }
+  // Default to Reel if the model omitted or returned an unknown format
+  if (!parsed.content_format || !['Reel', 'Carousel', 'Static'].includes(parsed.content_format)) {
+    parsed.content_format = 'Reel'
   }
   return parsed
 }

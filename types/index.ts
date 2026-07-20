@@ -30,6 +30,7 @@ export interface ScoredTrend {
   top_brand: string
   opportunity_note: string
   content_angle: string
+  content_format?: ContentFormat
   source_url?: string
   week_number: number
   year: number
@@ -39,6 +40,8 @@ export interface ScoredTrend {
   music_is_trending?: boolean
   created_at: string
 }
+
+export type ContentFormat = 'Reel' | 'Carousel' | 'Static'
 
 export interface TrendingAudio {
   id: string
@@ -65,6 +68,7 @@ export interface ClaudeScoreResult {
   top_brand: string
   opportunity_note: string
   content_angle: string
+  content_format?: ContentFormat
 }
 
 export type BrandKey = 'chivas' | 'absolut' | 'jameson' | 'glenlivet'

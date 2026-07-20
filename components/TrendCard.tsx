@@ -179,6 +179,35 @@ function SourceVideo({ url, platform }: { url: string; platform: string }) {
   )
 }
 
+const FORMAT_META: Record<string, { color: string; turn: string; turnColor: string }> = {
+  Reel: { color: '#E1306C', turn: 'High · 3–4 days', turnColor: '#DC2626' },
+  Carousel: { color: '#3B82F6', turn: 'Medium · 1–2 days', turnColor: '#D97706' },
+  Static: { color: '#16A34A', turn: 'Fast · same day', turnColor: '#16A34A' },
+}
+
+function FormatChips({ format }: { format?: string }) {
+  const fmt = format && FORMAT_META[format] ? format : 'Reel'
+  const m = FORMAT_META[fmt]
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold"
+        style={{ background: `${m.color}1A`, color: m.color }}
+        title="Recommended production format"
+      >
+        {fmt}
+      </span>
+      <span
+        className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold"
+        style={{ background: `${m.turnColor}1A`, color: m.turnColor }}
+        title="Estimated production turnaround"
+      >
+        {m.turn}
+      </span>
+    </div>
+  )
+}
+
 export default function TrendCard({ trend }: TrendCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-card hover:shadow-card-hover transition-shadow duration-200 overflow-hidden border-l-[3px] border-pr-gold flex flex-col">
@@ -201,6 +230,9 @@ export default function TrendCard({ trend }: TrendCardProps) {
             {trend.emotional_hook}
           </p>
         </div>
+
+        {/* Row 2b: Production format + turnaround */}
+        <FormatChips format={trend.content_format} />
 
         {/* Row 3: Source video — prominent, right after the headline */}
         {trend.source_url && (
