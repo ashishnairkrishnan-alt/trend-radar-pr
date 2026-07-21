@@ -2,23 +2,20 @@
 
 import { useState, useEffect, useCallback } from 'react'
 
-// Isolated preview (format-classify branch). Real trending Instagram CAROUSEL and
-// STATIC posts only — no Reels — each a clickable example, with a per-brand angle.
-// Read-only.
+// Isolated preview (format-classify branch). Trend names are read from roundup
+// SLIDE IMAGES with vision, then presented as our own briefs with independent
+// search links. No source handle, caption, image or post link is shown.
 
 type BrandKey = 'chivas' | 'absolut' | 'jameson' | 'glenlivet'
 
-interface Card {
+interface Trend {
   trend_name: string
+  description: string
+  keyword: string
   format: 'Carousel' | 'Static'
   turnaround: { label: string; level: string }
   brands: Record<BrandKey, string>
-  url: string
-  image: string
-  caption: string
-  owner: string
-  likes: number
-  inRegion: boolean
+  links: { instagram: string; google: string; pinterest: string }
 }
 
 const BRANDS: { key: BrandKey; name: string; color: string }[] = [
@@ -31,13 +28,12 @@ const FMT_COLOR: Record<string, string> = { Carousel: '#3B82F6', Static: '#16A34
 const TURN_COLOR: Record<string, string> = { fast: '#16A34A', medium: '#D97706' }
 
 export default function FormatPreviewPage() {
-  const [cards, setCards] = useState<Card[]>([])
-  const [counts, setCounts] = useState<{ carousel?: number; static?: number; region?: number }>({})
+  const [trends, setTrends] = useState<Trend[]>([])
+  const [counts, setCounts] = useState<{ carousel?: number; static?: number }>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [brand, setBrand] = useState<BrandKey>('chivas')
   const [fmt, setFmt] = useState<'all' | 'Carousel' | 'Static'>('all')
-  const [dubaiOnly, setDubaiOnly] = useState(false)
 
   const run = useCallback(async () => {
     setLoading(true); setError(null)
@@ -45,7 +41,7 @@ export default function FormatPreviewPage() {
       const res = await fetch('/api/preview-formats')
       const json = await res.json()
       if (!res.ok || !json.success) setError(json.error || 'Failed')
-      else { setCards(json.cards || []); setCounts(json.counts || {}) }
+      else { setTrends(json.trends || []); setCounts(json.counts || {}) }
     } catch (e) { setError(String(e)) }
     setLoading(false)
   }, [])
@@ -53,7 +49,7 @@ export default function FormatPreviewPage() {
   useEffect(() => { run() }, [run])
 
   const active = BRANDS.find((b) => b.key === brand)!
-  const shown = cards.filter((c) => (fmt === 'all' || c.format === fmt) && (!dubaiOnly || c.inRegion))
+  const shown = trends.filter((t) => fmt === 'all' || t.format === fmt)
 
   return (
     <div style={{ maxWidth: 1180, margin: '0 auto', padding: '24px 20px 60px', fontFamily: '"DM Sans", system-ui, sans-serif' }}>
@@ -61,11 +57,12 @@ export default function FormatPreviewPage() {
         Isolated Preview · not live · read-only
       </div>
       <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 26, fontWeight: 700, color: '#1A2B4A', margin: '0 0 6px' }}>
-        Trending Instagram — Carousels &amp; Statics
+        Static &amp; Carousel Trends
       </h1>
-      <p style={{ fontSize: 13, color: '#6B7280', maxWidth: 780, lineHeight: 1.5, margin: '0 0 18px' }}>
-        Real trending Instagram posts, <b>Reels excluded</b> — only carousels and statics. Each card is an actual post you
-        can open. Pick a <b>brand lens</b> to see how that brand would execute it, with format &amp; turnaround.
+      <p style={{ fontSize: 13, color: '#6B7280', maxWidth: 800, lineHeight: 1.5, margin: '0 0 18px' }}>
+        Trend names are read from monthly roundup slides, then written up as <b>your own briefs</b> — no source content,
+        handle or post is shown. Each card links out so you can find <b>real examples yourself</b>. Pick a
+        <b> brand lens</b> to see how that brand would execute it.
       </p>
 
       {/* Brand lens */}
@@ -92,7 +89,7 @@ export default function FormatPreviewPage() {
       {/* Format filter */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 22, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#9CA3AF' }}>Format</span>
-        {([['all', 'All'], ['Carousel', 'Carousel'], ['Static', 'Static']] as const).map(([v, label]) => (
+        {([['all', 'All'], ['Static', 'Static'], ['Carousel', 'Carousel']] as const).map(([v, label]) => (
           <button key={v} onClick={() => setFmt(v)}
             style={{
               border: '1px solid ' + (fmt === v ? '#0D1B3E' : '#E5E7EB'),
@@ -102,24 +99,12 @@ export default function FormatPreviewPage() {
             {label}{v !== 'all' && counts[v.toLowerCase() as 'carousel' | 'static'] != null ? ` · ${counts[v.toLowerCase() as 'carousel' | 'static']}` : ''}
           </button>
         ))}
-
-        <span style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
-
-        <button onClick={() => setDubaiOnly((v) => !v)}
-          style={{
-            border: '1px solid ' + (dubaiOnly ? '#0D1B3E' : '#E5E7EB'),
-            background: dubaiOnly ? '#0D1B3E' : '#fff', color: dubaiOnly ? '#fff' : '#1A2B4A',
-            fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-          }}>
-          📍 Dubai / UAE only{counts.region != null ? ` · ${counts.region}` : ''}
-        </button>
       </div>
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '80px 0', color: '#6B7280' }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: '#1A2B4A', marginBottom: 6 }}>Pulling trending carousels &amp; statics…</div>
-          <div style={{ fontSize: 13 }}>Scraping Instagram, filtering out Reels, writing briefs — 1–3 minutes.</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#1A2B4A', marginBottom: 6 }}>Reading trend slides…</div>
+          <div style={{ fontSize: 13 }}>Pulling roundup slides and reading each one with vision — 1–3 minutes.</div>
         </div>
       )}
 
@@ -133,31 +118,28 @@ export default function FormatPreviewPage() {
       )}
 
       {!loading && !error && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 18 }}>
-          {shown.map((c, i) => (
-            <div key={i} style={{ background: '#fff', borderRadius: 12, borderLeft: '3px solid ' + active.color, boxShadow: '0 1px 5px rgba(0,0,0,.07)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              {c.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.image} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: 180, objectFit: 'cover', background: '#F4F4F6', display: 'block' }} />
-              ) : (
-                <div style={{ height: 180, background: '#F4F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 12 }}>No preview image</div>
-              )}
-              <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: 16, fontWeight: 700, color: '#1A2B4A', margin: 0, lineHeight: 1.25 }}>{c.trend_name}</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 18 }}>
+          {shown.map((t, i) => (
+            <div key={i} style={{ background: '#fff', borderRadius: 12, borderLeft: '3px solid ' + active.color, boxShadow: '0 1px 5px rgba(0,0,0,.07)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: 17, fontWeight: 700, color: '#1A2B4A', margin: 0, lineHeight: 1.25 }}>{t.trend_name}</h3>
+              <p style={{ fontSize: 12.5, color: '#6B7280', lineHeight: 1.45, margin: 0 }}>{t.description}</p>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: (FMT_COLOR[t.format] || '#888') + '1A', color: FMT_COLOR[t.format] || '#888' }}>{t.format}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: (TURN_COLOR[t.turnaround.level] || '#888') + '1A', color: TURN_COLOR[t.turnaround.level] || '#888' }}>{t.turnaround.label}</span>
+              </div>
+
+              <div style={{ background: '#F8F9FB', borderRadius: 9, padding: '11px 13px' }}>
+                <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 4 }}>{active.name} angle</div>
+                <div style={{ fontSize: 13, color: '#1A2B4A', fontStyle: 'italic', lineHeight: 1.4 }}>&ldquo;{t.brands[brand] || '—'}&rdquo;</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 6 }}>Find real examples</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: (FMT_COLOR[c.format] || '#888') + '1A', color: FMT_COLOR[c.format] || '#888' }}>{c.format}</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: (TURN_COLOR[c.turnaround.level] || '#888') + '1A', color: TURN_COLOR[c.turnaround.level] || '#888' }}>{c.turnaround.label}</span>
-                  {c.inRegion && (
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: '#0D1B3E14', color: '#0D1B3E' }}>📍 Dubai</span>
-                  )}
-                </div>
-                <div style={{ background: '#F8F9FB', borderRadius: 9, padding: '11px 13px' }}>
-                  <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 4 }}>{active.name} angle</div>
-                  <div style={{ fontSize: 13, color: '#1A2B4A', fontStyle: 'italic', lineHeight: 1.4 }}>&ldquo;{c.brands[brand] || '—'}&rdquo;</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 11, color: '#9CA3AF' }}>@{c.owner} · ♥ {c.likes.toLocaleString()}</span>
-                  <a href={c.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', background: '#E1306C', padding: '5px 12px', borderRadius: 8, textDecoration: 'none' }}>Open post ↗</a>
+                  <a href={t.links.instagram} target="_blank" rel="noopener noreferrer" style={linkStyle('#E1306C')}>Instagram ↗</a>
+                  <a href={t.links.google} target="_blank" rel="noopener noreferrer" style={linkStyle('#4285F4')}>Google ↗</a>
+                  <a href={t.links.pinterest} target="_blank" rel="noopener noreferrer" style={linkStyle('#E60023')}>Pinterest ↗</a>
                 </div>
               </div>
             </div>
@@ -169,4 +151,8 @@ export default function FormatPreviewPage() {
       )}
     </div>
   )
+}
+
+function linkStyle(color: string): React.CSSProperties {
+  return { fontSize: 11.5, fontWeight: 700, color, background: color + '14', padding: '5px 11px', borderRadius: 8, textDecoration: 'none' }
 }
