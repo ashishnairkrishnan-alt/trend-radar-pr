@@ -18,6 +18,7 @@ interface Card {
   caption: string
   owner: string
   likes: number
+  inRegion: boolean
 }
 
 const BRANDS: { key: BrandKey; name: string; color: string }[] = [
@@ -31,11 +32,12 @@ const TURN_COLOR: Record<string, string> = { fast: '#16A34A', medium: '#D97706' 
 
 export default function FormatPreviewPage() {
   const [cards, setCards] = useState<Card[]>([])
-  const [counts, setCounts] = useState<{ carousel?: number; static?: number }>({})
+  const [counts, setCounts] = useState<{ carousel?: number; static?: number; region?: number }>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [brand, setBrand] = useState<BrandKey>('chivas')
   const [fmt, setFmt] = useState<'all' | 'Carousel' | 'Static'>('all')
+  const [dubaiOnly, setDubaiOnly] = useState(false)
 
   const run = useCallback(async () => {
     setLoading(true); setError(null)
@@ -51,7 +53,7 @@ export default function FormatPreviewPage() {
   useEffect(() => { run() }, [run])
 
   const active = BRANDS.find((b) => b.key === brand)!
-  const shown = cards.filter((c) => fmt === 'all' || c.format === fmt)
+  const shown = cards.filter((c) => (fmt === 'all' || c.format === fmt) && (!dubaiOnly || c.inRegion))
 
   return (
     <div style={{ maxWidth: 1180, margin: '0 auto', padding: '24px 20px 60px', fontFamily: '"DM Sans", system-ui, sans-serif' }}>
@@ -100,6 +102,18 @@ export default function FormatPreviewPage() {
             {label}{v !== 'all' && counts[v.toLowerCase() as 'carousel' | 'static'] != null ? ` · ${counts[v.toLowerCase() as 'carousel' | 'static']}` : ''}
           </button>
         ))}
+
+        <span style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
+
+        <button onClick={() => setDubaiOnly((v) => !v)}
+          style={{
+            border: '1px solid ' + (dubaiOnly ? '#0D1B3E' : '#E5E7EB'),
+            background: dubaiOnly ? '#0D1B3E' : '#fff', color: dubaiOnly ? '#fff' : '#1A2B4A',
+            fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}>
+          📍 Dubai / UAE only{counts.region != null ? ` · ${counts.region}` : ''}
+        </button>
       </div>
 
       {loading && (
@@ -133,6 +147,9 @@ export default function FormatPreviewPage() {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: (FMT_COLOR[c.format] || '#888') + '1A', color: FMT_COLOR[c.format] || '#888' }}>{c.format}</span>
                   <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: (TURN_COLOR[c.turnaround.level] || '#888') + '1A', color: TURN_COLOR[c.turnaround.level] || '#888' }}>{c.turnaround.label}</span>
+                  {c.inRegion && (
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: '#0D1B3E14', color: '#0D1B3E' }}>📍 Dubai</span>
+                  )}
                 </div>
                 <div style={{ background: '#F8F9FB', borderRadius: 9, padding: '11px 13px' }}>
                   <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 4 }}>{active.name} angle</div>
