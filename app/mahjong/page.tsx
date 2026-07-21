@@ -14,9 +14,11 @@ interface Post {
 
 interface Result {
   topic: string
+  region: string
   isTrending: boolean
   checkedAt: string
   totalFound: number
+  worldwideFound: number
   strongCount: number
   threshold: { minPosts: number; minLikes: number }
   posts: Post[]
@@ -48,7 +50,7 @@ export default function MahjongPage() {
           <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-pr-muted mb-1">Topic Watch</div>
           <h1 className="text-2xl font-playfair font-semibold text-pr-text">Mahjong</h1>
           <p className="text-sm text-pr-muted mt-0.5">
-            Live check of whether Mahjong is actually trending on Instagram right now
+            Live check of whether Mahjong is actually trending on Instagram in <b>Dubai / UAE</b>
           </p>
         </div>
         <button
@@ -68,8 +70,8 @@ export default function MahjongPage() {
 
       {loading && (
         <div className="bg-white rounded-lg shadow-card p-16 text-center">
-          <p className="text-pr-text font-semibold mb-1">Checking Instagram for Mahjong…</p>
-          <p className="text-sm text-pr-muted">Scanning #mahjong, #mahjongnight, #mahjongtiles — 1–3 minutes.</p>
+          <p className="text-pr-text font-semibold mb-1">Checking Instagram for Mahjong in Dubai / UAE…</p>
+          <p className="text-sm text-pr-muted">Scanning #mahjongdubai, #dubaimahjong, #mahjonguae and general tags — 1–3 minutes.</p>
         </div>
       )}
 
@@ -102,17 +104,21 @@ export default function MahjongPage() {
             <p className="text-sm text-pr-text">
               {data.isTrending ? (
                 <>
-                  Mahjong <b>is showing real traction</b> — {data.strongCount} posts above{' '}
-                  {data.threshold.minLikes.toLocaleString()} likes out of {data.totalFound} recent posts found.
+                  Mahjong <b>is showing real traction in {data.region}</b> — {data.strongCount} posts above{' '}
+                  {data.threshold.minLikes.toLocaleString()} likes, out of {data.totalFound} {data.region} posts found.
                 </>
               ) : (
                 <>
-                  <b>Mahjong is not currently a trend.</b> Only {data.strongCount} post
+                  <b>Mahjong is not currently a trend in {data.region}.</b> Only {data.strongCount} post
                   {data.strongCount === 1 ? '' : 's'} cleared {data.threshold.minLikes.toLocaleString()} likes
-                  (need {data.threshold.minPosts}), from {data.totalFound} recent posts found. Recent posts are shown
-                  below for reference.
+                  (need {data.threshold.minPosts}), from {data.totalFound} {data.region} posts found. Recent local posts
+                  are shown below for reference.
                 </>
               )}
+            </p>
+            <p className="text-xs text-pr-muted mt-2">
+              Filtered to {data.region} by caption, hashtags and tagged location · {data.worldwideFound} posts scanned
+              worldwide, {data.totalFound} matched the region
             </p>
           </div>
 
@@ -151,8 +157,12 @@ export default function MahjongPage() {
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow-card p-12 text-center">
-              <p className="text-pr-text font-semibold mb-1">No Mahjong posts found at all</p>
-              <p className="text-sm text-pr-muted">Nothing recent surfaced for these hashtags.</p>
+              <p className="text-pr-text font-semibold mb-1">No Dubai / UAE Mahjong posts found</p>
+              <p className="text-sm text-pr-muted">
+                {data.worldwideFound > 0
+                  ? `${data.worldwideFound} Mahjong posts were found worldwide, but none tied to Dubai / UAE.`
+                  : 'Nothing recent surfaced for these hashtags.'}
+              </p>
             </div>
           )}
         </>

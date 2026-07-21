@@ -6,13 +6,22 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 300
 
 const TOPICS: Record<string, { label: string; hashtags: string[] }> = {
-  mahjong: { label: 'Mahjong', hashtags: ['mahjong', 'mahjongnight', 'mahjongtiles'] },
+  mahjong: {
+    label: 'Mahjong',
+    // Region-specific tags first, then general ones (filtered to the region below)
+    hashtags: ['mahjongdubai', 'dubaimahjong', 'mahjonguae', 'mahjongnightdubai', 'mahjong', 'mahjongnight'],
+  },
 }
 
+// Keep only posts that are actually tied to our market
+const REGION_LABEL = 'Dubai / UAE'
+const REGION_RE = /\b(dubai|dxb|u\.?a\.?e|abu ?dhabi|emirates|sharjah|ajman|middle ?east|mena|gcc)\b/i
+
 // A topic counts as "trending" only if there is a real cluster of recent,
-// reasonably-engaged posts — not one or two stray uploads.
+// reasonably-engaged posts — not one or two stray uploads. Thresholds are lower
+// than a worldwide check because a single-market audience is naturally smaller.
 const MIN_POSTS = 3
-const MIN_LIKES = 400
+const MIN_LIKES = 150
 
 export async function GET(request: NextRequest) {
   const key = (request.nextUrl.searchParams.get('topic') || 'mahjong').toLowerCase()
@@ -44,28 +53,39 @@ export async function GET(request: NextRequest) {
     }
 
     const items = (await res.json()) as Array<Record<string, unknown>>
-    const posts = items
-      .filter((i) => i.url)
-      .map((i) => ({
-        url: i.url as string,
-        image: (i.displayUrl as string) || '',
-        caption: ((i.caption as string) || '').replace(/\s+/g, ' ').slice(0, 150),
-        likes: Number(i.likesCount) || 0,
-        comments: Number(i.commentsCount) || 0,
-        owner: (i.ownerUsername as string) || '',
-        type: (i.type as string) || '',
-      }))
-      .sort((a, b) => b.likes - a.likes)
 
+    const all = items
+      .filter((i) => i.url)
+      .map((i) => {
+        const caption = ((i.caption as string) || '').replace(/\s+/g, ' ')
+        const tags = ((i.hashtags as string[]) || []).join(' ')
+        const location = (i.locationName as string) || ''
+        return {
+          url: i.url as string,
+          image: (i.displayUrl as string) || '',
+          caption: caption.slice(0, 150),
+          likes: Number(i.likesCount) || 0,
+          comments: Number(i.commentsCount) || 0,
+          owner: (i.ownerUsername as string) || '',
+          type: (i.type as string) || '',
+          location,
+          // Region match on caption, hashtags or the tagged location
+          inRegion: REGION_RE.test(`${caption} ${tags} ${location}`),
+        }
+      })
+
+    const posts = all.filter((p) => p.inRegion).sort((a, b) => b.likes - a.likes)
     const strong = posts.filter((p) => p.likes >= MIN_LIKES)
     const isTrending = strong.length >= MIN_POSTS
 
     return NextResponse.json({
       success: true,
       topic: topic.label,
+      region: REGION_LABEL,
       isTrending,
       checkedAt: new Date().toISOString(),
       totalFound: posts.length,
+      worldwideFound: all.length,
       strongCount: strong.length,
       threshold: { minPosts: MIN_POSTS, minLikes: MIN_LIKES },
       posts: posts.slice(0, 12),
