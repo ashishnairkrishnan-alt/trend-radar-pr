@@ -15,7 +15,8 @@ interface Trend {
   format: 'Carousel' | 'Static'
   turnaround: { label: string; level: string }
   brands: Record<BrandKey, string>
-  links: { google: string; pinterest: string; instagram: string }
+  links: { google: string; pinterest: string }
+  examples: { title: string; link: string; source: string; thumbnail: string }[]
 }
 
 const BRANDS: { key: BrandKey; name: string; color: string }[] = [
@@ -136,13 +137,33 @@ export default function FormatPreviewPage() {
 
               <div>
                 <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 6 }}>
-                  Find real examples <span style={{ textTransform: 'none', letterSpacing: 0, color: '#C3C8D2' }}>· Google works best</span>
+                  {t.examples?.length ? 'Real posts using this layout' : 'Find examples'}
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <a href={t.links.google} target="_blank" rel="noopener noreferrer" style={linkStyle('#4285F4')}>Google ↗</a>
-                  <a href={t.links.pinterest} target="_blank" rel="noopener noreferrer" style={linkStyle('#E60023')}>Pinterest ↗</a>
-                  <a href={t.links.instagram} target="_blank" rel="noopener noreferrer" style={linkStyle('#E1306C')}>Instagram ↗</a>
-                </div>
+
+                {t.examples?.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {t.examples.map((ex, k) => (
+                      <a key={k} href={ex.link} target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', background: '#F8F9FB', borderRadius: 8, padding: '6px 8px' }}>
+                        {ex.thumbnail && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={ex.thumbnail} alt="" referrerPolicy="no-referrer" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 5, flexShrink: 0, background: '#E5E7EB' }} />
+                        )}
+                        <span style={{ minWidth: 0 }}>
+                          <span style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#1A2B4A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {ex.title || ex.source || 'View example'}
+                          </span>
+                          <span style={{ display: 'block', fontSize: 10, color: '#9CA3AF' }}>{ex.source} ↗</span>
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <a href={t.links.google} target="_blank" rel="noopener noreferrer" style={linkStyle('#4285F4')}>Google Images ↗</a>
+                    <a href={t.links.pinterest} target="_blank" rel="noopener noreferrer" style={linkStyle('#E60023')}>Pinterest ↗</a>
+                  </div>
+                )}
               </div>
             </div>
           ))}

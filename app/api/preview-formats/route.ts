@@ -28,6 +28,13 @@ function anthropic() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 }
 
+interface Example {
+  title: string
+  link: string
+  source: string
+  thumbnail: string
+}
+
 interface Trend {
   trend_name: string
   description: string
@@ -35,7 +42,9 @@ interface Trend {
   format: 'Carousel' | 'Static'
   turnaround: { label: string; level: string }
   brands: Record<BrandKey, string>
-  links: { google: string; pinterest: string; instagram: string }
+  links: { google: string; pinterest: string }
+  examples: Example[]
+  slideImage?: string
 }
 
 // Which roundup is this, and therefore what format do its trends take?
@@ -50,12 +59,44 @@ function detectFormat(caption: string): 'Static' | 'Carousel' | null {
 // for these trends — they're layout names, not topics anyone hashtags. Use
 // Instagram's full-text keyword search instead, and lead with Google, which is by
 // far the most dependable way to find write-ups and real examples of a format.
+// Text search is a weak fallback for these trends (they're layouts, not topics —
+// hashtag and keyword searches reliably return nothing). Real examples come from
+// Google Lens visual matching on the slide image instead; these remain as backup.
 function buildLinks(keyword: string) {
   const kw = (keyword || '').trim()
   return {
-    google: `https://www.google.com/search?q=${encodeURIComponent(`${kw} instagram post trend examples`)}`,
+    google: `https://www.google.com/search?q=${encodeURIComponent(`${kw} instagram post trend examples`)}&tbm=isch`,
     pinterest: `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(kw)}`,
-    instagram: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(kw)}`,
+  }
+}
+
+// Reverse-image search a slide to find real posts that use the same layout.
+// This is the reliable path: layout trends are visual, so match them visually.
+async function visualMatches(imageUrl: string, token: string): Promise<Example[]> {
+  try {
+    const res = await fetch(
+      `https://api.apify.com/v2/acts/zen-studio~google-lens-visual-search/run-sync-get-dataset-items?token=${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl, searchType: 'visual_matches', maxResults: 20 }),
+        signal: AbortSignal.timeout(70000),
+      }
+    )
+    if (!res.ok) return []
+    const items = (await res.json()) as Array<Record<string, unknown>>
+    const matches = (items?.[0]?.visualMatches as Array<Record<string, string>>) || []
+    return matches
+      .filter((m) => m.link)
+      .slice(0, 4)
+      .map((m) => ({
+        title: String(m.title || '').slice(0, 90),
+        link: String(m.link),
+        source: String(m.source || ''),
+        thumbnail: String(m.thumbnail || ''),
+      }))
+  } catch {
+    return []
   }
 }
 
@@ -77,9 +118,10 @@ Extract every real trend. Rules:
 - trend_name: the name shown on the slide, tidied to Title Case (e.g. "iOS Moodboards", "6 Months Left Timeline").
 - description: one plain sentence (max 20 words) explaining what the format is, in your own words.
 - keyword: 1-3 lowercase words to search for real examples (e.g. "ios moodboard").
+- slide_index: which image this trend came from, 1-based, in the order the images were given.
 
 Return JSON only:
-{ "trends": [ { "trend_name": "string", "description": "string", "keyword": "string" } ] }`
+{ "trends": [ { "trend_name": "string", "description": "string", "keyword": "string", "slide_index": 1 } ] }`
 
 const BRAND_PROMPT = `You are a brand strategist for Pernod Ricard Middle East. Respond in valid JSON only.
 
@@ -191,6 +233,9 @@ export async function GET() {
       for (const t of list) {
         const a = angles[t.trend_name] || {}
         const keyword = String(t.keyword || t.trend_name || '').toLowerCase()
+        // Map the trend back to the slide it was read from, for reverse-image search
+        const idx = Number(t.slide_index) - 1
+        const slideImage = idx >= 0 && idx < r.images.length ? r.images[idx] : undefined
         trends.push({
           trend_name: String(t.trend_name || '').slice(0, 90),
           description: String(t.description || '').slice(0, 160),
@@ -204,6 +249,8 @@ export async function GET() {
             glenlivet: String(a.glenlivet || '').slice(0, 120),
           },
           links: buildLinks(keyword),
+          examples: [],
+          slideImage,
         })
       }
     } catch { /* skip this roundup */ }
@@ -213,9 +260,23 @@ export async function GET() {
     return NextResponse.json({ success: false, error: 'Could not read any trends from the roundup slides.' }, { status: 404 })
   }
 
+  // Step 3 — reverse-image search each slide to find real posts using the same
+  // layout. Run in parallel and cap the count to stay inside the time budget.
+  const MAX_LENS = 6
+  const targets = trends.filter((t) => t.slideImage).slice(0, MAX_LENS)
+  await Promise.all(
+    targets.map(async (t) => {
+      t.examples = await visualMatches(t.slideImage as string, token)
+    })
+  )
+
+  // Never return the source slide image to the client
+  const clean = trends.map(({ slideImage: _slideImage, ...rest }) => rest)
+
   const counts = {
     static: trends.filter((t) => t.format === 'Static').length,
     carousel: trends.filter((t) => t.format === 'Carousel').length,
+    withExamples: trends.filter((t) => t.examples.length > 0).length,
   }
-  return NextResponse.json({ success: true, count: trends.length, counts, trends })
+  return NextResponse.json({ success: true, count: clean.length, counts, trends: clean })
 }
