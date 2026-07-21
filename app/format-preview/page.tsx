@@ -15,7 +15,7 @@ interface Trend {
   format: 'Carousel' | 'Static'
   turnaround: { label: string; level: string }
   brands: Record<BrandKey, string>
-  links: { instagram: string; google: string; pinterest: string }
+  links: { google: string; pinterest: string; instagram: string }
 }
 
 const BRANDS: { key: BrandKey; name: string; color: string }[] = [
@@ -135,11 +135,13 @@ export default function FormatPreviewPage() {
               </div>
 
               <div>
-                <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 6 }}>Find real examples</div>
+                <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 6 }}>
+                  Find real examples <span style={{ textTransform: 'none', letterSpacing: 0, color: '#C3C8D2' }}>· Google works best</span>
+                </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <a href={t.links.instagram} target="_blank" rel="noopener noreferrer" style={linkStyle('#E1306C')}>Instagram ↗</a>
                   <a href={t.links.google} target="_blank" rel="noopener noreferrer" style={linkStyle('#4285F4')}>Google ↗</a>
                   <a href={t.links.pinterest} target="_blank" rel="noopener noreferrer" style={linkStyle('#E60023')}>Pinterest ↗</a>
+                  <a href={t.links.instagram} target="_blank" rel="noopener noreferrer" style={linkStyle('#E1306C')}>Instagram ↗</a>
                 </div>
               </div>
             </div>

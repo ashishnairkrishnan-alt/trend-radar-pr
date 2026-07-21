@@ -35,7 +35,7 @@ interface Trend {
   format: 'Carousel' | 'Static'
   turnaround: { label: string; level: string }
   brands: Record<BrandKey, string>
-  links: { instagram: string; google: string; pinterest: string }
+  links: { google: string; pinterest: string; instagram: string }
 }
 
 // Which roundup is this, and therefore what format do its trends take?
@@ -46,13 +46,16 @@ function detectFormat(caption: string): 'Static' | 'Carousel' | null {
   return null
 }
 
+// NOTE: hashtag URLs (/explore/tags/redflagscarousel) reliably return "No results"
+// for these trends — they're layout names, not topics anyone hashtags. Use
+// Instagram's full-text keyword search instead, and lead with Google, which is by
+// far the most dependable way to find write-ups and real examples of a format.
 function buildLinks(keyword: string) {
   const kw = (keyword || '').trim()
-  const tag = kw.replace(/[^a-z0-9]/gi, '')
   return {
-    instagram: tag ? `https://www.instagram.com/explore/tags/${tag}/` : 'https://www.instagram.com/explore/',
-    google: `https://www.google.com/search?q=${encodeURIComponent(`"${kw}" instagram post trend`)}`,
+    google: `https://www.google.com/search?q=${encodeURIComponent(`${kw} instagram post trend examples`)}`,
     pinterest: `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(kw)}`,
+    instagram: `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(kw)}`,
   }
 }
 
