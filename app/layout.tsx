@@ -61,6 +61,7 @@ function Header() {
         <nav style={{ display: 'flex', gap: 4 }}>
           {[
             { label: 'Dashboard', href: '/' },
+            { label: 'Mahjong', href: '/mahjong' },
             { label: 'History', href: '/history' },
             { label: 'Settings', href: '/settings' },
           ].map(({ label, href }) => (
