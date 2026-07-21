@@ -2,6 +2,7 @@
 import { createServerClient } from '@/lib/supabase'
 import { sendDigestEmail } from '@/lib/email'
 import { DIGEST_RECIPIENTS, TEST_RECIPIENT, APP_CONFIG } from '@/lib/config'
+import { dedupeTrends } from '@/lib/dedupe'
 import type { ScoredTrend } from '@/types'
 
 function getWeekNumber(date: Date): number {
@@ -53,7 +54,8 @@ export async function POST(request: NextRequest) {
     return getTopScore(b) - getTopScore(a)
   })
 
-  const top = sorted.slice(0, APP_CONFIG.topTrendsPerDigest)
+  // Collapse repeats before picking the top N, so the email doesn't show the same idea twice
+  const top = dedupeTrends(sorted).slice(0, APP_CONFIG.topTrendsPerDigest)
   console.log(`[digest] Selected ${top.length} trends for digest`)
 
   // Log a pending digest entry (skip logging for test sends to keep history clean)

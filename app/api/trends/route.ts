@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { dedupeTrends } from '@/lib/dedupe'
 import type { ScoredTrend } from '@/types'
 
 // Server-side read for the dashboard — uses the service-role key so it is not
@@ -46,7 +47,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, week, year, trends: (data as ScoredTrend[]) || [] })
+    // Collapse repeats (same idea from multiple sources / reworded)
+    const trends = dedupeTrends((data as ScoredTrend[]) || [])
+    return NextResponse.json({ success: true, week, year, trends })
   } catch (err) {
     return NextResponse.json({ success: false, error: String(err) }, { status: 500 })
   }
