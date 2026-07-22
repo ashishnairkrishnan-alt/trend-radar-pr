@@ -28,6 +28,7 @@ function anthropic() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 }
 
+// A real Instagram post by a real account that uses this trend
 interface Example {
   title: string
   link: string
@@ -42,7 +43,8 @@ interface Trend {
   format: 'Carousel' | 'Static'
   turnaround: { label: string; level: string }
   brands: Record<BrandKey, string>
-  links: { google: string; pinterest: string }
+  links: { google: string; pinterest: string; instagramTag: string }
+  hashtag: string
   examples: Example[]
   slideImage?: string
 }
@@ -74,41 +76,64 @@ function buildLinks(keyword: string) {
 
 // Reverse-image search a slide to find real posts that use the same layout.
 // This is the reliable path: layout trends are visual, so match them visually.
-async function visualMatches(
-  imageUrl: string,
+// Scrape the real hashtags behind these trends in ONE call, then match posts back
+// to each trend by the hashtags the post itself carries. Every result is a real
+// post by a real account, so the link is accurate by construction.
+async function fetchExamplesByHashtag(
+  hashtags: string[],
   token: string,
   diag: string[]
-): Promise<Example[]> {
+): Promise<Record<string, Example[]>> {
+  const out: Record<string, Example[]> = {}
+  const tags = Array.from(new Set(hashtags.filter(Boolean))).slice(0, 10)
+  if (tags.length === 0) return out
+
   try {
     const res = await fetch(
-      `https://api.apify.com/v2/acts/zen-studio~google-lens-visual-search/run-sync-get-dataset-items?token=${token}`,
+      `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${token}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl, searchType: 'visual_matches', maxResults: 20 }),
-        signal: AbortSignal.timeout(70000),
+        body: JSON.stringify({
+          directUrls: tags.map((t) => `https://www.instagram.com/explore/tags/${t}/`),
+          resultsType: 'posts',
+          resultsLimit: 60,
+          searchType: 'hashtag',
+          addParentData: false,
+        }),
+        signal: AbortSignal.timeout(150000),
       }
     )
     if (!res.ok) {
-      const body = await res.text()
-      diag.push(`lens HTTP ${res.status}: ${body.slice(0, 140)}`)
-      return []
+      diag.push(`examples HTTP ${res.status}: ${(await res.text()).slice(0, 120)}`)
+      return out
     }
     const items = (await res.json()) as Array<Record<string, unknown>>
-    const matches = (items?.[0]?.visualMatches as Array<Record<string, string>>) || []
-    if (matches.length === 0) diag.push(`lens returned 0 matches (items=${items?.length ?? 0})`)
-    return matches
-      .filter((m) => m.link)
-      .slice(0, 4)
-      .map((m) => ({
-        title: String(m.title || '').slice(0, 90),
-        link: String(m.link),
-        source: String(m.source || ''),
-        thumbnail: String(m.thumbnail || ''),
-      }))
+    diag.push(`scraped ${items.length} posts across ${tags.length} tags`)
+
+    for (const tag of tags) {
+      const matches = items
+        .filter((i) => {
+          if (!i.url) return false
+          // Only carousels and statics — no Reels
+          if (i.type !== 'Sidecar' && i.type !== 'Image') return false
+          const tagList = ((i.hashtags as string[]) || []).map((h) => h.toLowerCase())
+          return tagList.includes(tag)
+        })
+        .sort((a, b) => (Number(b.likesCount) || 0) - (Number(a.likesCount) || 0))
+        .slice(0, 3)
+        .map((i) => ({
+          title: ((i.caption as string) || '').replace(/\s+/g, ' ').slice(0, 70) || 'Instagram post',
+          link: i.url as string,
+          source: `@${(i.ownerUsername as string) || 'instagram'} · ♥ ${(Number(i.likesCount) || 0).toLocaleString()}`,
+          thumbnail: (i.displayUrl as string) || '',
+        }))
+      if (matches.length > 0) out[tag] = matches
+    }
+    return out
   } catch (err) {
-    diag.push(`lens error: ${String(err).slice(0, 140)}`)
-    return []
+    diag.push(`examples error: ${String(err).slice(0, 120)}`)
+    return out
   }
 }
 
@@ -130,10 +155,14 @@ Extract every real trend. Rules:
 - trend_name: the name shown on the slide, tidied to Title Case (e.g. "iOS Moodboards", "6 Months Left Timeline").
 - description: one plain sentence (max 20 words) explaining what the format is, in your own words.
 - keyword: 1-3 lowercase words to search for real examples (e.g. "ios moodboard").
+- hashtag: ONE real, widely-used Instagram hashtag where real people posting this kind of
+  content can be found. It MUST be a hashtag that genuinely exists and is popular — prefer
+  broad, established tags (e.g. "photodump", "summerbucketlist", "moodboard", "bestof2026").
+  Do NOT invent compound tags like "fruityscrappyphotodumps". No # symbol, lowercase.
 - slide_index: which image this trend came from, 1-based, in the order the images were given.
 
 Return JSON only:
-{ "trends": [ { "trend_name": "string", "description": "string", "keyword": "string", "slide_index": 1 } ] }`
+{ "trends": [ { "trend_name": "string", "description": "string", "keyword": "string", "hashtag": "string", "slide_index": 1 } ] }`
 
 const BRAND_PROMPT = `You are a brand strategist for Pernod Ricard Middle East. Respond in valid JSON only.
 
@@ -248,7 +277,9 @@ export async function GET() {
         // Map the trend back to the slide it was read from, for reverse-image search
         const idx = Number(t.slide_index) - 1
         const slideImage = idx >= 0 && idx < r.images.length ? r.images[idx] : undefined
+        const hashtag = String(t.hashtag || '').toLowerCase().replace(/[^a-z0-9]/g, '')
         trends.push({
+          hashtag,
           trend_name: String(t.trend_name || '').slice(0, 90),
           description: String(t.description || '').slice(0, 160),
           keyword,
@@ -260,7 +291,10 @@ export async function GET() {
             jameson: String(a.jameson || '').slice(0, 120),
             glenlivet: String(a.glenlivet || '').slice(0, 120),
           },
-          links: buildLinks(keyword),
+          links: {
+            ...buildLinks(keyword),
+            instagramTag: hashtag ? `https://www.instagram.com/explore/tags/${hashtag}/` : '',
+          },
           examples: [],
           slideImage,
         })
@@ -274,14 +308,11 @@ export async function GET() {
 
   // Step 3 — reverse-image search each slide to find real posts using the same
   // layout. Run in parallel and cap the count to stay inside the time budget.
-  const MAX_LENS = 6
   const lensDiag: string[] = []
-  const targets = trends.filter((t) => t.slideImage).slice(0, MAX_LENS)
-  await Promise.all(
-    targets.map(async (t) => {
-      t.examples = await visualMatches(t.slideImage as string, token, lensDiag)
-    })
-  )
+  const byTag = await fetchExamplesByHashtag(trends.map((t) => t.hashtag), token, lensDiag)
+  for (const t of trends) {
+    t.examples = byTag[t.hashtag] || []
+  }
 
   // Never return the source slide image to the client
   const clean = trends.map(({ slideImage: _slideImage, ...rest }) => rest)
@@ -295,7 +326,7 @@ export async function GET() {
     success: true,
     count: clean.length,
     counts,
-    lensAttempted: targets.length,
+    hashtagsUsed: Array.from(new Set(trends.map((t) => t.hashtag).filter(Boolean))),
     lensDiag: lensDiag.slice(0, 6),
     trends: clean,
   })

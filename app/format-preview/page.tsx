@@ -15,7 +15,8 @@ interface Trend {
   format: 'Carousel' | 'Static'
   turnaround: { label: string; level: string }
   brands: Record<BrandKey, string>
-  links: { google: string; pinterest: string }
+  links: { google: string; pinterest: string; instagramTag: string }
+  hashtag: string
   examples: { title: string; link: string; source: string; thumbnail: string }[]
 }
 
@@ -137,7 +138,8 @@ export default function FormatPreviewPage() {
 
               <div>
                 <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 6 }}>
-                  {t.examples?.length ? 'Real posts using this layout' : 'Find examples'}
+                  {t.examples?.length ? 'Real accounts doing this' : 'Find examples'}
+                  {t.hashtag && <span style={{ textTransform: 'none', letterSpacing: 0, color: '#C3C8D2' }}> · #{t.hashtag}</span>}
                 </div>
 
                 {t.examples?.length > 0 ? (
@@ -160,6 +162,9 @@ export default function FormatPreviewPage() {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {t.links.instagramTag && (
+                      <a href={t.links.instagramTag} target="_blank" rel="noopener noreferrer" style={linkStyle('#E1306C')}>#{t.hashtag} ↗</a>
+                    )}
                     <a href={t.links.google} target="_blank" rel="noopener noreferrer" style={linkStyle('#4285F4')}>Google Images ↗</a>
                     <a href={t.links.pinterest} target="_blank" rel="noopener noreferrer" style={linkStyle('#E60023')}>Pinterest ↗</a>
                   </div>
