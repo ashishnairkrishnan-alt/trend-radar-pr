@@ -64,15 +64,21 @@ function detectFormat(caption: string): 'Static' | 'Carousel' | null {
 // Google Lens visual matching on the slide image instead; these remain as backup.
 function buildLinks(keyword: string) {
   const kw = (keyword || '').trim()
+  // udm=2 is Google's current Images tab (tbm=isch is legacy and can render oddly).
+  // Keep the query short — extra words like "post trend examples" kill the results.
   return {
-    google: `https://www.google.com/search?q=${encodeURIComponent(`${kw} instagram post trend examples`)}&tbm=isch`,
+    google: `https://www.google.com/search?udm=2&q=${encodeURIComponent(`${kw} instagram`)}`,
     pinterest: `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(kw)}`,
   }
 }
 
 // Reverse-image search a slide to find real posts that use the same layout.
 // This is the reliable path: layout trends are visual, so match them visually.
-async function visualMatches(imageUrl: string, token: string): Promise<Example[]> {
+async function visualMatches(
+  imageUrl: string,
+  token: string,
+  diag: string[]
+): Promise<Example[]> {
   try {
     const res = await fetch(
       `https://api.apify.com/v2/acts/zen-studio~google-lens-visual-search/run-sync-get-dataset-items?token=${token}`,
@@ -83,9 +89,14 @@ async function visualMatches(imageUrl: string, token: string): Promise<Example[]
         signal: AbortSignal.timeout(70000),
       }
     )
-    if (!res.ok) return []
+    if (!res.ok) {
+      const body = await res.text()
+      diag.push(`lens HTTP ${res.status}: ${body.slice(0, 140)}`)
+      return []
+    }
     const items = (await res.json()) as Array<Record<string, unknown>>
     const matches = (items?.[0]?.visualMatches as Array<Record<string, string>>) || []
+    if (matches.length === 0) diag.push(`lens returned 0 matches (items=${items?.length ?? 0})`)
     return matches
       .filter((m) => m.link)
       .slice(0, 4)
@@ -95,7 +106,8 @@ async function visualMatches(imageUrl: string, token: string): Promise<Example[]
         source: String(m.source || ''),
         thumbnail: String(m.thumbnail || ''),
       }))
-  } catch {
+  } catch (err) {
+    diag.push(`lens error: ${String(err).slice(0, 140)}`)
     return []
   }
 }
@@ -263,10 +275,11 @@ export async function GET() {
   // Step 3 — reverse-image search each slide to find real posts using the same
   // layout. Run in parallel and cap the count to stay inside the time budget.
   const MAX_LENS = 6
+  const lensDiag: string[] = []
   const targets = trends.filter((t) => t.slideImage).slice(0, MAX_LENS)
   await Promise.all(
     targets.map(async (t) => {
-      t.examples = await visualMatches(t.slideImage as string, token)
+      t.examples = await visualMatches(t.slideImage as string, token, lensDiag)
     })
   )
 
@@ -278,5 +291,12 @@ export async function GET() {
     carousel: trends.filter((t) => t.format === 'Carousel').length,
     withExamples: trends.filter((t) => t.examples.length > 0).length,
   }
-  return NextResponse.json({ success: true, count: clean.length, counts, trends: clean })
+  return NextResponse.json({
+    success: true,
+    count: clean.length,
+    counts,
+    lensAttempted: targets.length,
+    lensDiag: lensDiag.slice(0, 6),
+    trends: clean,
+  })
 }
