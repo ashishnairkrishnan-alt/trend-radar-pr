@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
-// READ-ONLY preview endpoint (isolated branch).
+// READ-ONLY preview endpoint (isolated page on the stable domain).
 //
 // The discovery account posts monthly roundup carousels where EACH SLIDE is one
 // trend, with its name in large text on the image — the caption is only SEO
 // keywords and CTAs. So we read the SLIDE IMAGES with vision to get the real
-// trend names, then hand back independent search links so the team can find
-// their own examples. The source account's handle, caption and post are never
-// shown or linked. No DB writes.
+// trend names, then hand back ONE reliable example link: a Google Images search
+// for "<trend name> instagram trend" (validated by hand to return relevant real
+// posts). The source account's handle, caption and post are never shown. No DB
+// writes, and no second scrape — only the profile pull + the vision/brand calls.
 export const maxDuration = 300
 
 const DISCOVERY_PROFILE = 'holler.academy' // scout only — never displayed
@@ -28,25 +29,13 @@ function anthropic() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 }
 
-// A real Instagram post by a real account that uses this trend
-interface Example {
-  title: string
-  link: string
-  source: string
-  thumbnail: string
-}
-
 interface Trend {
   trend_name: string
   description: string
-  keyword: string
   format: 'Carousel' | 'Static'
   turnaround: { label: string; level: string }
   brands: Record<BrandKey, string>
-  links: { google: string; pinterest: string; instagramTag: string }
-  hashtag: string
-  examples: Example[]
-  slideImage?: string
+  googleImages: string
 }
 
 // Which roundup is this, and therefore what format do its trends take?
@@ -57,84 +46,10 @@ function detectFormat(caption: string): 'Static' | 'Carousel' | null {
   return null
 }
 
-// NOTE: hashtag URLs (/explore/tags/redflagscarousel) reliably return "No results"
-// for these trends — they're layout names, not topics anyone hashtags. Use
-// Instagram's full-text keyword search instead, and lead with Google, which is by
-// far the most dependable way to find write-ups and real examples of a format.
-// Text search is a weak fallback for these trends (they're layouts, not topics —
-// hashtag and keyword searches reliably return nothing). Real examples come from
-// Google Lens visual matching on the slide image instead; these remain as backup.
-function buildLinks(keyword: string) {
-  const kw = (keyword || '').trim()
-  // udm=2 is Google's current Images tab (tbm=isch is legacy and can render oddly).
-  // Keep the query short — extra words like "post trend examples" kill the results.
-  return {
-    google: `https://www.google.com/search?udm=2&q=${encodeURIComponent(`${kw} instagram`)}`,
-    pinterest: `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(kw)}`,
-  }
-}
-
-// Reverse-image search a slide to find real posts that use the same layout.
-// This is the reliable path: layout trends are visual, so match them visually.
-// Scrape the real hashtags behind these trends in ONE call, then match posts back
-// to each trend by the hashtags the post itself carries. Every result is a real
-// post by a real account, so the link is accurate by construction.
-async function fetchExamplesByHashtag(
-  hashtags: string[],
-  token: string,
-  diag: string[]
-): Promise<Record<string, Example[]>> {
-  const out: Record<string, Example[]> = {}
-  const tags = Array.from(new Set(hashtags.filter(Boolean))).slice(0, 10)
-  if (tags.length === 0) return out
-
-  try {
-    const res = await fetch(
-      `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items?token=${token}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          directUrls: tags.map((t) => `https://www.instagram.com/explore/tags/${t}/`),
-          resultsType: 'posts',
-          resultsLimit: 60,
-          searchType: 'hashtag',
-          addParentData: false,
-        }),
-        signal: AbortSignal.timeout(150000),
-      }
-    )
-    if (!res.ok) {
-      diag.push(`examples HTTP ${res.status}: ${(await res.text()).slice(0, 120)}`)
-      return out
-    }
-    const items = (await res.json()) as Array<Record<string, unknown>>
-    diag.push(`scraped ${items.length} posts across ${tags.length} tags`)
-
-    for (const tag of tags) {
-      const matches = items
-        .filter((i) => {
-          if (!i.url) return false
-          // Only carousels and statics — no Reels
-          if (i.type !== 'Sidecar' && i.type !== 'Image') return false
-          const tagList = ((i.hashtags as string[]) || []).map((h) => h.toLowerCase())
-          return tagList.includes(tag)
-        })
-        .sort((a, b) => (Number(b.likesCount) || 0) - (Number(a.likesCount) || 0))
-        .slice(0, 3)
-        .map((i) => ({
-          title: ((i.caption as string) || '').replace(/\s+/g, ' ').slice(0, 70) || 'Instagram post',
-          link: i.url as string,
-          source: `@${(i.ownerUsername as string) || 'instagram'} · ♥ ${(Number(i.likesCount) || 0).toLocaleString()}`,
-          thumbnail: (i.displayUrl as string) || '',
-        }))
-      if (matches.length > 0) out[tag] = matches
-    }
-    return out
-  } catch (err) {
-    diag.push(`examples error: ${String(err).slice(0, 120)}`)
-    return out
-  }
+// The one link that was validated by hand to return relevant real examples:
+// Google Images for the real trend name + "instagram trend".
+function googleImagesLink(trendName: string): string {
+  return `https://www.google.com/search?udm=2&q=${encodeURIComponent(`${trendName} instagram trend`)}`
 }
 
 // Fetch a slide image and inline it for the vision call
@@ -152,17 +67,11 @@ const VISION_PROMPT = `These images are slides from a monthly Instagram trend ro
 
 Extract every real trend. Rules:
 - SKIP cover slides (e.g. "Trending Single Posts July 2026"), intro slides, and pure CTA slides ("comment TEMPLATE", "follow for more", "free masterclass").
-- trend_name: the name shown on the slide, tidied to Title Case (e.g. "iOS Moodboards", "6 Months Left Timeline").
+- trend_name: the name shown on the slide, tidied to Title Case (e.g. "iOS Moodboards", "6 Months Left Timeline"). Use the EXACT name on the slide — do not invent or rephrase.
 - description: one plain sentence (max 20 words) explaining what the format is, in your own words.
-- keyword: 1-3 lowercase words to search for real examples (e.g. "ios moodboard").
-- hashtag: ONE real, widely-used Instagram hashtag where real people posting this kind of
-  content can be found. It MUST be a hashtag that genuinely exists and is popular — prefer
-  broad, established tags (e.g. "photodump", "summerbucketlist", "moodboard", "bestof2026").
-  Do NOT invent compound tags like "fruityscrappyphotodumps". No # symbol, lowercase.
-- slide_index: which image this trend came from, 1-based, in the order the images were given.
 
 Return JSON only:
-{ "trends": [ { "trend_name": "string", "description": "string", "keyword": "string", "hashtag": "string", "slide_index": 1 } ] }`
+{ "trends": [ { "trend_name": "string", "description": "string" } ] }`
 
 const BRAND_PROMPT = `You are a brand strategist for Pernod Ricard Middle East. Respond in valid JSON only.
 
@@ -213,7 +122,6 @@ export async function GET() {
         .map((c) => (c.displayUrl as string) || '')
         .filter(Boolean)
         .slice(0, MAX_SLIDES_PER_POST)
-      // Fall back to the cover image only if there are no child slides
       if (images.length === 0 && i.displayUrl) images.push(i.displayUrl as string)
       if (images.length > 0) roundups.push({ format, images })
       if (roundups.length >= MAX_ROUNDUPS) break
@@ -241,7 +149,7 @@ export async function GET() {
 
       const visionMsg = await anthropic().messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1500,
+        max_tokens: 1200,
         messages: [{ role: 'user', content: [...blocks, { type: 'text', text: VISION_PROMPT }] }],
       })
       const vc = visionMsg.content[0]
@@ -250,39 +158,28 @@ export async function GET() {
       const list = (Array.isArray(parsed.trends) ? parsed.trends : []) as Array<Record<string, string>>
       if (list.length === 0) continue
 
-      // Brand angles for this batch
       const angles: Record<string, Record<string, string>> = {}
       try {
         const bm = await anthropic().messages.create({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1500,
           system: BRAND_PROMPT.replace('{FORMAT}', r.format),
-          messages: [{
-            role: 'user',
-            content: list.map((t) => `- ${t.trend_name}: ${t.description}`).join('\n'),
-          }],
+          messages: [{ role: 'user', content: list.map((t) => `- ${t.trend_name}: ${t.description}`).join('\n') }],
         })
         const bc = bm.content[0]
         if (bc.type === 'text') {
           const bp = JSON.parse(bc.text.replace(/```(?:json)?\n?/g, '').trim())
-          for (const row of (bp.results || []) as Array<Record<string, string>>) {
-            angles[row.trend_name] = row
-          }
+          for (const row of (bp.results || []) as Array<Record<string, string>>) angles[row.trend_name] = row
         }
       } catch { /* angles are optional */ }
 
       for (const t of list) {
         const a = angles[t.trend_name] || {}
-        const keyword = String(t.keyword || t.trend_name || '').toLowerCase()
-        // Map the trend back to the slide it was read from, for reverse-image search
-        const idx = Number(t.slide_index) - 1
-        const slideImage = idx >= 0 && idx < r.images.length ? r.images[idx] : undefined
-        const hashtag = String(t.hashtag || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+        const trend_name = String(t.trend_name || '').slice(0, 90)
+        if (!trend_name) continue
         trends.push({
-          hashtag,
-          trend_name: String(t.trend_name || '').slice(0, 90),
+          trend_name,
           description: String(t.description || '').slice(0, 160),
-          keyword,
           format: r.format,
           turnaround: TURNAROUND[r.format],
           brands: {
@@ -291,12 +188,7 @@ export async function GET() {
             jameson: String(a.jameson || '').slice(0, 120),
             glenlivet: String(a.glenlivet || '').slice(0, 120),
           },
-          links: {
-            ...buildLinks(keyword),
-            instagramTag: hashtag ? `https://www.instagram.com/explore/tags/${hashtag}/` : '',
-          },
-          examples: [],
-          slideImage,
+          googleImages: googleImagesLink(trend_name),
         })
       }
     } catch { /* skip this roundup */ }
@@ -306,28 +198,9 @@ export async function GET() {
     return NextResponse.json({ success: false, error: 'Could not read any trends from the roundup slides.' }, { status: 404 })
   }
 
-  // Step 3 — reverse-image search each slide to find real posts using the same
-  // layout. Run in parallel and cap the count to stay inside the time budget.
-  const lensDiag: string[] = []
-  const byTag = await fetchExamplesByHashtag(trends.map((t) => t.hashtag), token, lensDiag)
-  for (const t of trends) {
-    t.examples = byTag[t.hashtag] || []
-  }
-
-  // Never return the source slide image to the client
-  const clean = trends.map(({ slideImage: _slideImage, ...rest }) => rest)
-
   const counts = {
     static: trends.filter((t) => t.format === 'Static').length,
     carousel: trends.filter((t) => t.format === 'Carousel').length,
-    withExamples: trends.filter((t) => t.examples.length > 0).length,
   }
-  return NextResponse.json({
-    success: true,
-    count: clean.length,
-    counts,
-    hashtagsUsed: Array.from(new Set(trends.map((t) => t.hashtag).filter(Boolean))),
-    lensDiag: lensDiag.slice(0, 6),
-    trends: clean,
-  })
+  return NextResponse.json({ success: true, count: trends.length, counts, trends })
 }

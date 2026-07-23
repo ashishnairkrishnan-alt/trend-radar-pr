@@ -11,13 +11,10 @@ type BrandKey = 'chivas' | 'absolut' | 'jameson' | 'glenlivet'
 interface Trend {
   trend_name: string
   description: string
-  keyword: string
   format: 'Carousel' | 'Static'
   turnaround: { label: string; level: string }
   brands: Record<BrandKey, string>
-  links: { google: string; pinterest: string; instagramTag: string }
-  hashtag: string
-  examples: { title: string; link: string; source: string; thumbnail: string }[]
+  googleImages: string
 }
 
 const BRANDS: { key: BrandKey; name: string; color: string }[] = [
@@ -137,38 +134,11 @@ export default function FormatPreviewPage() {
               </div>
 
               <div>
-                <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 6 }}>
-                  {t.examples?.length ? 'Real accounts doing this' : 'Find examples'}
-                  {t.hashtag && <span style={{ textTransform: 'none', letterSpacing: 0, color: '#C3C8D2' }}> · #{t.hashtag}</span>}
-                </div>
-
-                {t.examples?.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {t.examples.map((ex, k) => (
-                      <a key={k} href={ex.link} target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', background: '#F8F9FB', borderRadius: 8, padding: '6px 8px' }}>
-                        {ex.thumbnail && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={ex.thumbnail} alt="" referrerPolicy="no-referrer" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 5, flexShrink: 0, background: '#E5E7EB' }} />
-                        )}
-                        <span style={{ minWidth: 0 }}>
-                          <span style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#1A2B4A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {ex.title || ex.source || 'View example'}
-                          </span>
-                          <span style={{ display: 'block', fontSize: 10, color: '#9CA3AF' }}>{ex.source} ↗</span>
-                        </span>
-                      </a>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {t.links.instagramTag && (
-                      <a href={t.links.instagramTag} target="_blank" rel="noopener noreferrer" style={linkStyle('#E1306C')}>#{t.hashtag} ↗</a>
-                    )}
-                    <a href={t.links.google} target="_blank" rel="noopener noreferrer" style={linkStyle('#4285F4')}>Google Images ↗</a>
-                    <a href={t.links.pinterest} target="_blank" rel="noopener noreferrer" style={linkStyle('#E60023')}>Pinterest ↗</a>
-                  </div>
-                )}
+                <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 6 }}>See real examples</div>
+                <a href={t.googleImages} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#fff', background: '#4285F4', padding: '7px 14px', borderRadius: 8, textDecoration: 'none' }}>
+                  See on Google Images ↗
+                </a>
               </div>
             </div>
           ))}
@@ -179,8 +149,4 @@ export default function FormatPreviewPage() {
       )}
     </div>
   )
-}
-
-function linkStyle(color: string): React.CSSProperties {
-  return { fontSize: 11.5, fontWeight: 700, color, background: color + '14', padding: '5px 11px', borderRadius: 8, textDecoration: 'none' }
 }
