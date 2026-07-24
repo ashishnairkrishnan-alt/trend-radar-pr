@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { scoreNormalisedTrend } from '@/lib/scorer'
 import {
-export const dynamic = 'force-dynamic'
   fetchDatasetItems,
   aggregateHashtagTrends,
   aggregateAudioTrends,
   aggregateInstagramHashtagTrends,
 } from '@/lib/apify'
 
+export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const APIFY_BASE = 'https://api.apify.com/v2'

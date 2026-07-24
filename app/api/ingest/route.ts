@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-export const dynamic = 'force-dynamic'
-
-export const maxDuration = 60 // Vercel Pro: 60s for scoring batch
 import { createServerClient } from '@/lib/supabase'
 import { scoreTrendBatch } from '@/lib/scorer'
 import {
@@ -12,6 +9,9 @@ import {
   NormalisedTrend,
 } from '@/lib/apify'
 import type { RawTrend } from '@/types'
+
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // Vercel Pro: 60s for scoring batch
 
 function validateSecret(request: NextRequest): boolean {
   const expected = process.env.APIFY_WEBHOOK_SECRET
