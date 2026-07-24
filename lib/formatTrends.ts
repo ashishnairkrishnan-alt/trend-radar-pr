@@ -199,9 +199,12 @@ export async function generateFormatTrends(): Promise<FormatTrend[]> {
           jameson: brand('jameson'), glenlivet: brand('glenlivet'),
         }
         // Trust the model's top_brand if valid, else derive from the scores
-        let top_brand = String(row.top_brand || '') as FormatBrandKey
-        if (!FORMAT_BRAND_KEYS.includes(top_brand)) {
-          top_brand = FORMAT_BRAND_KEYS.reduce((best, k) => (brands[k].score > brands[best].score ? k : best), 'chivas')
+        const rawTop = String(row.top_brand || '')
+        let top_brand: FormatBrandKey = FORMAT_BRAND_KEYS.includes(rawTop as FormatBrandKey)
+          ? (rawTop as FormatBrandKey)
+          : 'chivas'
+        for (const k of FORMAT_BRAND_KEYS) {
+          if (brands[k].score > brands[top_brand].score) top_brand = k
         }
         trends.push({
           trend_name,
