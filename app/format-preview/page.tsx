@@ -13,7 +13,8 @@ interface Trend {
   description: string
   format: 'Carousel' | 'Static'
   turnaround: { label: string; level: string }
-  brands: Record<BrandKey, string>
+  top_brand: BrandKey
+  brands: Record<BrandKey, { score: number; angle: string }>
   googleImages: string
 }
 
@@ -23,6 +24,7 @@ const BRANDS: { key: BrandKey; name: string; color: string }[] = [
   { key: 'jameson', name: 'Jameson', color: '#4CAF72' },
   { key: 'glenlivet', name: 'The Glenlivet', color: '#2E7D52' },
 ]
+const brandName = (k: BrandKey) => BRANDS.find((b) => b.key === k)?.name || k
 const FMT_COLOR: Record<string, string> = { Carousel: '#3B82F6', Static: '#16A34A' }
 const TURN_COLOR: Record<string, string> = { fast: '#16A34A', medium: '#D97706' }
 
@@ -126,11 +128,21 @@ export default function FormatPreviewPage() {
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: (FMT_COLOR[t.format] || '#888') + '1A', color: FMT_COLOR[t.format] || '#888' }}>{t.format}</span>
                 <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: (TURN_COLOR[t.turnaround.level] || '#888') + '1A', color: TURN_COLOR[t.turnaround.level] || '#888' }}>{t.turnaround.label}</span>
+                {/* Best-fit brand for this trend */}
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: (BRANDS.find((b) => b.key === t.top_brand)?.color || '#888') + '1A', color: BRANDS.find((b) => b.key === t.top_brand)?.color || '#888' }}>
+                  ★ Best fit: {brandName(t.top_brand)}
+                </span>
               </div>
 
               <div style={{ background: '#F8F9FB', borderRadius: 9, padding: '11px 13px' }}>
-                <div style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF', marginBottom: 4 }}>{active.name} angle</div>
-                <div style={{ fontSize: 13, color: '#1A2B4A', fontStyle: 'italic', lineHeight: 1.4 }}>&ldquo;{t.brands[brand] || '—'}&rdquo;</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9CA3AF' }}>{active.name} angle</span>
+                  {/* Fit score for the selected brand */}
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: (t.brands[brand]?.score ?? 0) >= 4 ? '#16A34A' : (t.brands[brand]?.score ?? 0) >= 3 ? '#D97706' : '#9CA3AF' }}>
+                    {t.brands[brand]?.score ?? '—'}/5 fit
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: '#1A2B4A', fontStyle: 'italic', lineHeight: 1.4 }}>&ldquo;{t.brands[brand]?.angle || '—'}&rdquo;</div>
               </div>
 
               <div>
