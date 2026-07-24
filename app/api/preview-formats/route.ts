@@ -12,8 +12,8 @@ import Anthropic from '@anthropic-ai/sdk'
 // writes, and no second scrape — only the profile pull + the vision/brand calls.
 export const maxDuration = 300
 
-const DISCOVERY_PROFILE = 'holler.academy' // scout only — never displayed
-const MAX_SLIDES_PER_POST = 9
+const DISCOVERY_PROFILE = 'holler.academy' // scout only, never displayed
+const MAX_SLIDES_PER_POST = 12
 const MAX_ROUNDUPS = 2
 
 const BRAND_KEYS = ['chivas', 'absolut', 'jameson', 'glenlivet'] as const
@@ -21,12 +21,22 @@ type BrandKey = (typeof BRAND_KEYS)[number]
 
 const TURNAROUND: Record<string, { label: string; level: string }> = {
   Static: { label: 'Fast · same day', level: 'fast' },
-  Carousel: { label: 'Medium · 1–2 days', level: 'medium' },
+  Carousel: { label: 'Medium · 1-2 days', level: 'medium' },
 }
 
 function anthropic() {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not set')
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+}
+
+// Strip em/en dashes (a common AI tell) and tidy whitespace in any displayed text
+function clean(s: string): string {
+  return (s || '').replace(/\s*[—–]\s*/g, ' - ').replace(/\s+/g, ' ').trim()
+}
+
+// Normalise a trend name for robust matching between the vision and brand calls
+function normName(s: string): string {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
 interface Trend {
@@ -158,39 +168,44 @@ export async function GET() {
       const list = (Array.isArray(parsed.trends) ? parsed.trends : []) as Array<Record<string, string>>
       if (list.length === 0) continue
 
-      const angles: Record<string, Record<string, string>> = {}
+      // Brand angles: keep the SAME order as the trends list, and also index by
+      // normalised name so we map reliably even if the model reorders.
+      const anglesByName: Record<string, Record<string, string>> = {}
+      let anglesInOrder: Array<Record<string, string>> = []
       try {
         const bm = await anthropic().messages.create({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1500,
+          max_tokens: 1800,
           system: BRAND_PROMPT.replace('{FORMAT}', r.format),
-          messages: [{ role: 'user', content: list.map((t) => `- ${t.trend_name}: ${t.description}`).join('\n') }],
+          messages: [{ role: 'user', content: list.map((t, i) => `${i + 1}. ${t.trend_name}: ${t.description}`).join('\n') }],
         })
         const bc = bm.content[0]
         if (bc.type === 'text') {
           const bp = JSON.parse(bc.text.replace(/```(?:json)?\n?/g, '').trim())
-          for (const row of (bp.results || []) as Array<Record<string, string>>) angles[row.trend_name] = row
+          anglesInOrder = (bp.results || []) as Array<Record<string, string>>
+          for (const row of anglesInOrder) anglesByName[normName(row.trend_name)] = row
         }
       } catch { /* angles are optional */ }
 
-      for (const t of list) {
-        const a = angles[t.trend_name] || {}
-        const trend_name = String(t.trend_name || '').slice(0, 90)
-        if (!trend_name) continue
+      list.forEach((t, i) => {
+        const trend_name = clean(String(t.trend_name || '')).slice(0, 90)
+        if (!trend_name) return
+        // Prefer name match; fall back to same position in the results list
+        const a = anglesByName[normName(trend_name)] || anglesInOrder[i] || {}
         trends.push({
           trend_name,
-          description: String(t.description || '').slice(0, 160),
+          description: clean(String(t.description || '')).slice(0, 160),
           format: r.format,
           turnaround: TURNAROUND[r.format],
           brands: {
-            chivas: String(a.chivas || '').slice(0, 120),
-            absolut: String(a.absolut || '').slice(0, 120),
-            jameson: String(a.jameson || '').slice(0, 120),
-            glenlivet: String(a.glenlivet || '').slice(0, 120),
+            chivas: clean(String(a.chivas || '')).slice(0, 120),
+            absolut: clean(String(a.absolut || '')).slice(0, 120),
+            jameson: clean(String(a.jameson || '')).slice(0, 120),
+            glenlivet: clean(String(a.glenlivet || '')).slice(0, 120),
           },
           googleImages: googleImagesLink(trend_name),
         })
-      }
+      })
     } catch { /* skip this roundup */ }
   }
 
