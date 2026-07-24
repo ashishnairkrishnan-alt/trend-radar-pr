@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { generateFormatTrends } from '@/lib/formatTrends'
+export const dynamic = 'force-dynamic'
 
 // READ-ONLY preview endpoint (isolated page on the stable domain).
 // Delegates to the shared generator so the page and the Monday email stay in sync.

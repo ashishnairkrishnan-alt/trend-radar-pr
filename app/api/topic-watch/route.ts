@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 
 // Topic watch — checks whether a specific topic (e.g. mahjong) is actually
 // trending on Instagram right now, rather than waiting for it to appear in the

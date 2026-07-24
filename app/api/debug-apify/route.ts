@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchDatasetItems } from '@/lib/apify'
+export const dynamic = 'force-dynamic'
 
 const APIFY_BASE = 'https://api.apify.com/v2'
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { dedupeTrends } from '@/lib/dedupe'
 import type { ScoredTrend } from '@/types'
+export const dynamic = 'force-dynamic'
 
 // Server-side read for the dashboard — uses the service-role key so it is not
 // affected by Row Level Security on the anon key (which was returning 0 rows).

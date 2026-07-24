@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { triggerAllScrapers } from '@/lib/apify'
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   console.log('[cron/scrape] Starting TikTok trending feed scrape')

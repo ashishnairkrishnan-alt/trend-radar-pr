@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import type { DigestLog } from '@/types'
+export const dynamic = 'force-dynamic'
 
 // Server-side read for the digest history page — uses the service-role key so it
 // is not affected by RLS on the anon key (which returns 0 rows in the browser).

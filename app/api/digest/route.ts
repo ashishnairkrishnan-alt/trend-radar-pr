@@ -5,6 +5,8 @@ import { DIGEST_RECIPIENTS, TEST_RECIPIENT, APP_CONFIG } from '@/lib/config'
 import { dedupeTrends } from '@/lib/dedupe'
 import type { ScoredTrend } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 function getWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
   const dayNum = d.getUTCDay() || 7

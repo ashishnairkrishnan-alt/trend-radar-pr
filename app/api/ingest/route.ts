@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 
 export const maxDuration = 60 // Vercel Pro: 60s for scoring batch
 import { createServerClient } from '@/lib/supabase'

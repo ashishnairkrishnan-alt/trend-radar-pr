@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { sendAlertEmail } from '@/lib/email'
+export const dynamic = 'force-dynamic'
 
 // Watchdog — runs Monday ~08:30 Dubai (04:30 UTC), 30 min after the digest cron.
 // If no successful digest was logged today, it emails an alert to ALERT_RECIPIENT

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient, getBrowserClient } from '@/lib/supabase'
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const results: Record<string, unknown> = {}

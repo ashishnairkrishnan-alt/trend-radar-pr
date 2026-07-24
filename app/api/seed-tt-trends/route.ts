@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { scoreNormalisedTrend } from '@/lib/scorer'
 import type { NormalisedTrend } from '@/lib/apify'
+export const dynamic = 'force-dynamic'
 
 export const maxDuration = 60
 

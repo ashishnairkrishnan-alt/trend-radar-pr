@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { scoreNormalisedTrend } from '@/lib/scorer'
 import {
+export const dynamic = 'force-dynamic'
   fetchDatasetItems,
   aggregateHashtagTrends,
   aggregateAudioTrends,
