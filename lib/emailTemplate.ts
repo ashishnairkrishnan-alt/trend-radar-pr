@@ -218,8 +218,8 @@ export function buildDigestHtml(trends: ScoredTrend[], weekNumber: number, year:
           <tr>
             <td style="background:${COLORS.navy};padding:30px 32px;text-align:center;">
               <div style="font-size:11px;color:${COLORS.gold};letter-spacing:0.2em;text-transform:uppercase;font-family:Arial,sans-serif;margin-bottom:8px;">Pernod Ricard Middle East</div>
-              <div style="font-size:30px;font-weight:700;color:${COLORS.white};font-family:Georgia,serif;letter-spacing:0.02em;">Trend Radar</div>
-              <div style="font-size:16px;color:${COLORS.gold};font-family:Georgia,serif;margin-top:4px;">Week ${weekNumber} &middot; ${APP_CONFIG.fiscalYear}</div>
+              <div style="font-size:30px;font-weight:700;color:${COLORS.white};font-family:Georgia,serif;letter-spacing:0.02em;">Trend Radar &middot; Reels</div>
+              <div style="font-size:16px;color:${COLORS.gold};font-family:Georgia,serif;margin-top:4px;">Trending Reels &middot; Week ${weekNumber} &middot; ${APP_CONFIG.fiscalYear}</div>
               <div style="font-size:12px;color:#8A9CC0;font-family:Arial,sans-serif;margin-top:10px;">${sendDate}</div>
             </td>
           </tr>

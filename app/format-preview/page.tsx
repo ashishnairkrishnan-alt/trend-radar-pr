@@ -35,11 +35,14 @@ export default function FormatPreviewPage() {
   const [error, setError] = useState<string | null>(null)
   const [brand, setBrand] = useState<BrandKey>('chivas')
   const [fmt, setFmt] = useState<'all' | 'Carousel' | 'Static'>('all')
+  const [generating, setGenerating] = useState(false)
+  const [sendMsg, setSendMsg] = useState<string | null>(null)
 
+  // Fast read of the STORED trends (no scrape) — instant load.
   const run = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const res = await fetch('/api/preview-formats')
+      const res = await fetch('/api/format-trends')
       const json = await res.json()
       if (!res.ok || !json.success) setError(json.error || 'Failed')
       else { setTrends(json.trends || []); setCounts(json.counts || {}) }
@@ -48,6 +51,28 @@ export default function FormatPreviewPage() {
   }, [])
 
   useEffect(() => { run() }, [run])
+
+  // Regenerate this week's trends (the slow scrape+vision) then re-read storage.
+  const regenerate = useCallback(async () => {
+    setGenerating(true); setError(null)
+    try {
+      const res = await fetch('/api/cron/format-generate')
+      const json = await res.json()
+      if (!res.ok || !json.success) setError(json.error || 'Generation failed')
+    } catch (e) { setError(String(e)) }
+    setGenerating(false)
+    run()
+  }, [run])
+
+  const sendEmail = useCallback(async (test: boolean) => {
+    setSendMsg(test ? 'Sending test…' : 'Sending to all…')
+    try {
+      const res = await fetch(`/api/digest-formats${test ? '?test=1' : ''}`, { method: 'POST' })
+      const json = await res.json()
+      setSendMsg(res.ok && json.success ? (test ? 'Test sent ✓' : 'Sent to all ✓') : `Failed: ${json.error || ''}`)
+    } catch (e) { setSendMsg(`Failed: ${String(e)}`) }
+    setTimeout(() => setSendMsg(null), 5000)
+  }, [])
 
   const active = BRANDS.find((b) => b.key === brand)!
   const shown = trends.filter((t) => fmt === 'all' || t.format === fmt)
@@ -60,11 +85,28 @@ export default function FormatPreviewPage() {
       <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 26, fontWeight: 700, color: '#1A2B4A', margin: '0 0 6px' }}>
         Static &amp; Carousel Trends
       </h1>
-      <p style={{ fontSize: 13, color: '#6B7280', maxWidth: 800, lineHeight: 1.5, margin: '0 0 18px' }}>
-        Trend names are read from monthly roundup slides, then written up as <b>your own briefs</b> — no source content,
-        handle or post is shown. Each card links out so you can find <b>real examples yourself</b>. Pick a
-        <b> brand lens</b> to see how that brand would execute it.
+      <p style={{ fontSize: 13, color: '#6B7280', maxWidth: 820, lineHeight: 1.5, margin: '0 0 14px' }}>
+        Trend names are read from monthly roundup slides, written up as <b>your own per-brand briefs</b>, and stored
+        weekly so this page loads instantly. Each card scores brand fit and links to real examples. This is the same
+        data the <b>Monday Static &amp; Carousel email</b> sends.
       </p>
+
+      {/* Generate + email controls */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+        <button onClick={regenerate} disabled={generating}
+          style={{ border: '1px solid #0D1B3E', background: '#0D1B3E', color: '#fff', fontSize: 12.5, fontWeight: 600, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', opacity: generating ? 0.6 : 1 }}>
+          {generating ? 'Generating… (1–3 min)' : '↻ Regenerate this week'}
+        </button>
+        <button onClick={() => sendEmail(true)}
+          style={{ border: '1px solid #E5E7EB', background: '#fff', color: '#1A2B4A', fontSize: 12.5, fontWeight: 600, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+          Send Test (me)
+        </button>
+        <button onClick={() => sendEmail(false)}
+          style={{ border: '1px solid #C9A84C', background: '#C9A84C', color: '#0D1B3E', fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+          Send to all recipients
+        </button>
+        {sendMsg && <span style={{ fontSize: 12, color: sendMsg.startsWith('Failed') ? '#DC2626' : '#16A34A', fontWeight: 600 }}>{sendMsg}</span>}
+      </div>
 
       {/* Brand lens */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#fff', borderRadius: 12, padding: '12px 14px', boxShadow: '0 1px 4px rgba(0,0,0,.06)', marginBottom: 12, flexWrap: 'wrap' }}>
@@ -102,10 +144,14 @@ export default function FormatPreviewPage() {
         ))}
       </div>
 
-      {loading && (
+      {(loading || generating) && (
         <div style={{ textAlign: 'center', padding: '80px 0', color: '#6B7280' }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: '#1A2B4A', marginBottom: 6 }}>Reading trend slides…</div>
-          <div style={{ fontSize: 13 }}>Pulling roundup slides and reading each one with vision — 1–3 minutes.</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#1A2B4A', marginBottom: 6 }}>
+            {generating ? 'Generating this week’s trends…' : 'Loading…'}
+          </div>
+          <div style={{ fontSize: 13 }}>
+            {generating ? 'Scraping and reading slides with vision — 1–3 minutes. This runs once, then it’s stored.' : 'Reading stored trends.'}
+          </div>
         </div>
       )}
 
@@ -155,7 +201,11 @@ export default function FormatPreviewPage() {
             </div>
           ))}
           {shown.length === 0 && (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 0', color: '#9CA3AF', fontSize: 13 }}>Nothing in this view — try another format or hit Refresh.</div>
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 0', color: '#9CA3AF', fontSize: 13 }}>
+              {trends.length === 0
+                ? 'No trends stored for this week yet. Click “Regenerate this week” above to pull them (runs once, ~1–3 min).'
+                : 'Nothing in this view — try another format.'}
+            </div>
           )}
         </div>
       )}

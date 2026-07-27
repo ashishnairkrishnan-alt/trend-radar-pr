@@ -17,6 +17,42 @@ function getResendClient() {
 
 const FROM_EMAIL = () => process.env.RESEND_FROM_EMAIL || 'trend-radar@pernodricard.com'
 
+// Shared sender: throttles (Resend ~2/s) and retries once, so no recipient is
+// silently dropped. Used by both the Reels digest and the Static/Carousel digest.
+export async function sendToRecipients(
+  subject: string,
+  html: string,
+  recipients: string[]
+): Promise<{ success: boolean; messageIds?: string[]; error?: string }> {
+  if (recipients.length === 0) return { success: false, error: 'No recipients configured' }
+  const resend = getResendClient()
+  const fromEmail = FROM_EMAIL()
+  const messageIds: string[] = []
+  const failed: string[] = []
+
+  for (let i = 0; i < recipients.length; i++) {
+    const recipient = recipients[i]
+    if (i > 0) await new Promise((r) => setTimeout(r, 600))
+    let sent = false
+    for (let attempt = 0; attempt < 2 && !sent; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 800))
+      const { data, error } = await resend.emails.send({ from: fromEmail, to: recipient, subject, html })
+      if (error) {
+        console.error(`[email] Failed to send to ${recipient} (attempt ${attempt + 1}):`, error)
+      } else {
+        messageIds.push(data?.id || '')
+        sent = true
+      }
+    }
+    if (!sent) failed.push(recipient)
+  }
+
+  if (failed.length > 0) {
+    return { success: false, messageIds, error: `Failed to send to ${failed.length}/${recipients.length}: ${failed.join(', ')}` }
+  }
+  return { success: true, messageIds }
+}
+
 // Plain failure alert — used by the Monday watchdog when the digest didn't go out.
 export async function sendAlertEmail(
   subject: string,
@@ -57,7 +93,7 @@ export async function sendDigestEmail(
 
   const isTest = !!(recipientsOverride && recipientsOverride.length > 0)
   const html = buildDigestHtml(trends, weekNumber, year)
-  const subject = `${isTest ? '[TEST] ' : ''}Trend Radar — Week ${weekNumber} ${APP_CONFIG.fiscalYear} | ${trends.length} Trends Scored`
+  const subject = `${isTest ? '[TEST] ' : ''}Trend Radar — Reels · Week ${weekNumber} ${APP_CONFIG.fiscalYear} | ${trends.length} Trends Scored`
   const resend = getResendClient()
   const fromEmail = FROM_EMAIL()
 
