@@ -192,9 +192,6 @@ export default function DashboardPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
-          <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-pr-muted mb-1">
-            Social Intelligence
-          </div>
           <h1 className="text-2xl font-playfair font-semibold text-pr-text">
             Trend Dashboard
           </h1>

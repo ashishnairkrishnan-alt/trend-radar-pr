@@ -103,7 +103,7 @@ function SourceVideo({ url, platform }: { url: string; platform: string }) {
             )}
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-pr-muted font-medium leading-none mb-0.5">
+            <p className="text-[11px] uppercase tracking-widest text-pr-muted font-medium leading-none mb-0.5">
               Trend spotted in
             </p>
             <div className="flex items-center gap-1.5">
@@ -111,7 +111,7 @@ function SourceVideo({ url, platform }: { url: string; platform: string }) {
                 {getSourceLabel(url)}
               </p>
               {isAudioUrl(url) && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide bg-purple-100 text-purple-700 shrink-0">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold tracking-wide bg-purple-100 text-purple-700 shrink-0">
                   <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M9 18V5l12-2v13M9 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm12-2c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z"/>
                   </svg>
@@ -181,7 +181,7 @@ function SourceVideo({ url, platform }: { url: string; platform: string }) {
 
 export default function TrendCard({ trend }: TrendCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-card hover:shadow-card-hover transition-shadow duration-200 overflow-hidden border-l-[3px] border-pr-gold flex flex-col">
+    <div className="bg-white rounded-lg shadow-card hover:shadow-card-hover transition-shadow duration-200 overflow-hidden border border-gray-200 flex flex-col">
       <div className="p-5 flex flex-col gap-4">
 
         {/* Row 1: Platform badge + spike */}
@@ -208,14 +208,14 @@ export default function TrendCard({ trend }: TrendCardProps) {
         )}
 
         {/* Row 4: Brand scores */}
-        <div className="bg-pr-bg rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-widest text-pr-muted mb-2 font-medium">Brand Relevance</p>
+        <div className="pt-3 border-t border-gray-100">
+          <p className="text-[11px] uppercase tracking-widest text-pr-muted mb-2 font-medium">Brand Relevance</p>
           <BrandScoreBars trend={trend} />
         </div>
 
         {/* Row 5: Best fit + opportunity */}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-widest text-pr-muted">Best fit</span>
+          <span className="text-[11px] uppercase tracking-widest text-pr-muted">Best fit</span>
           <TopBrandChip brand={trend.top_brand} />
         </div>
 
