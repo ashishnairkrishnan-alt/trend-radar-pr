@@ -184,9 +184,17 @@ export default function TrendCard({ trend }: TrendCardProps) {
     <div className="bg-white rounded-lg shadow-card hover:shadow-card-hover transition-shadow duration-200 overflow-hidden border border-gray-200 flex flex-col">
       <div className="p-5 flex flex-col gap-4">
 
-        {/* Row 1: Platform badge + spike */}
+        {/* Row 1: Platform badge + novelty + spike */}
         <div className="flex items-center justify-between">
-          <PlatformBadge platform={trend.platform} />
+          <div className="flex items-center gap-2">
+            <PlatformBadge platform={trend.platform} />
+            {trend.isNew === true && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold tracking-wide bg-green-100 text-green-700">NEW</span>
+            )}
+            {trend.isNew === false && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold tracking-wide bg-gray-100 text-gray-500">Seen before</span>
+            )}
+          </div>
           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-extrabold tracking-tight bg-pr-gold text-pr-navy tabular">
             +{trend.spike_pct}%
           </span>

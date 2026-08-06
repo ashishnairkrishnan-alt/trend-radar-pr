@@ -30,6 +30,7 @@ export interface ScoredTrend {
   top_brand: string
   opportunity_note: string
   content_angle: string
+  isNew?: boolean
   source_url?: string
   week_number: number
   year: number

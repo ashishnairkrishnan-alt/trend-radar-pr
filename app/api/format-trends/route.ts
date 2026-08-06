@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { rowToTrend } from '@/lib/formatStore'
+import { trendSignature } from '@/lib/dedupe'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ export async function GET() {
       .order('year', { ascending: false })
       .order('week_number', { ascending: false })
       .order('created_at', { ascending: true })
-      .limit(60)
+      .limit(300)
 
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
 
@@ -29,6 +30,14 @@ export async function GET() {
     const topWeek = all[0].week_number
     const batch = all.filter((r) => r.year === topYear && r.week_number === topWeek)
     const trends = batch.map(rowToTrend)
+
+    // Tag NEW vs seen-before by comparing to every EARLIER stored batch
+    const priorSigs = new Set(
+      all
+        .filter((r) => !(r.year === topYear && r.week_number === topWeek))
+        .map((r) => trendSignature(String(r.trend_name || '')))
+    )
+    for (const t of trends) t.isNew = !priorSigs.has(trendSignature(t.trend_name))
     const counts = {
       static: trends.filter((t) => t.format === 'Static').length,
       carousel: trends.filter((t) => t.format === 'Carousel').length,

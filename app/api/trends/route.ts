@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { dedupeTrends } from '@/lib/dedupe'
+import { dedupeTrends, trendSignature } from '@/lib/dedupe'
 import type { ScoredTrend } from '@/types'
 export const dynamic = 'force-dynamic'
 
@@ -50,6 +50,15 @@ export async function GET(request: NextRequest) {
 
     // Collapse repeats (same idea from multiple sources / reworded)
     const trends = dedupeTrends((data as ScoredTrend[]) || [])
+
+    // Tag each trend NEW vs seen-before by comparing to earlier weeks
+    const { data: prior } = await supabase
+      .from('scored_trends')
+      .select('trend_name, week_number, year')
+      .or(`year.lt.${year},and(year.eq.${year},week_number.lt.${week})`)
+    const priorSigs = new Set((prior || []).map((p) => trendSignature(p.trend_name as string)))
+    for (const t of trends) t.isNew = !priorSigs.has(trendSignature(t.trend_name))
+
     return NextResponse.json({ success: true, week, year, trends })
   } catch (err) {
     return NextResponse.json({ success: false, error: String(err) }, { status: 500 })

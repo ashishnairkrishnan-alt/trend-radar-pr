@@ -47,7 +47,7 @@ function card(t: FormatTrend): string {
         </td>
       </tr></table>
 
-      <div style="font-size:17px;font-weight:700;color:${COLORS.text};font-family:Georgia,serif;margin-top:10px;">${t.trend_name}</div>
+      <div style="font-size:17px;font-weight:700;color:${COLORS.text};font-family:Georgia,serif;margin-top:10px;">${t.trend_name}${t.isNew === true ? ' <span style="background:#DCFCE7;color:#15803D;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:Arial,sans-serif;vertical-align:middle;">NEW</span>' : t.isNew === false ? ' <span style="background:#F3F4F6;color:#6B7280;font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;font-family:Arial,sans-serif;vertical-align:middle;">Seen before</span>' : ''}</div>
       <div style="font-size:12.5px;color:${COLORS.muted};font-family:Arial,sans-serif;line-height:1.5;margin-top:4px;">${t.description}</div>
 
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${COLORS.bg};border-radius:8px;margin-top:12px;">

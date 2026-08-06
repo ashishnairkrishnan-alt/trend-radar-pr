@@ -2,7 +2,7 @@
 import { createServerClient } from '@/lib/supabase'
 import { sendDigestEmail } from '@/lib/email'
 import { DIGEST_RECIPIENTS, TEST_RECIPIENT, APP_CONFIG } from '@/lib/config'
-import { dedupeTrends } from '@/lib/dedupe'
+import { dedupeTrends, trendSignature } from '@/lib/dedupe'
 import type { ScoredTrend } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -58,6 +58,14 @@ export async function POST(request: NextRequest) {
 
   // Collapse repeats before picking the top N, so the email doesn't show the same idea twice
   const top = dedupeTrends(sorted).slice(0, APP_CONFIG.topTrendsPerDigest)
+
+  // Tag NEW vs seen-before by comparing to earlier weeks
+  const { data: prior } = await supabase
+    .from('scored_trends')
+    .select('trend_name')
+    .or(`year.lt.${year},and(year.eq.${year},week_number.lt.${weekNumber})`)
+  const priorSigs = new Set((prior || []).map((p) => trendSignature(p.trend_name as string)))
+  for (const t of top) t.isNew = !priorSigs.has(trendSignature(t.trend_name))
   console.log(`[digest] Selected ${top.length} trends for digest`)
 
   // Log a pending digest entry (skip logging for test sends to keep history clean)

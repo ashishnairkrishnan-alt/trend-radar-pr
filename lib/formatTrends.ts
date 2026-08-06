@@ -32,6 +32,7 @@ export interface FormatTrend {
   top_brand: FormatBrandKey
   brands: Record<FormatBrandKey, FormatTrendBrand>
   googleImages: string
+  isNew?: boolean
 }
 
 function anthropic() {

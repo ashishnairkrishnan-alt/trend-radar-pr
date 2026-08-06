@@ -92,6 +92,12 @@ function scoreBars(trend: ScoredTrend): string {
   }).join('')
 }
 
+function noveltyTag(isNew?: boolean): string {
+  if (isNew === true) return `<span style="margin-left:8px;background:#DCFCE7;color:#15803D;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:Arial,sans-serif;">NEW</span>`
+  if (isNew === false) return `<span style="margin-left:8px;background:#F3F4F6;color:#6B7280;font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;font-family:Arial,sans-serif;">Seen before</span>`
+  return ''
+}
+
 function trendCard(trend: ScoredTrend): string {
   const topBrandObj = BRANDS.find((b) =>
     b.name.toLowerCase().includes(trend.top_brand.toLowerCase()) ||
@@ -107,7 +113,7 @@ function trendCard(trend: ScoredTrend): string {
         <!-- Top row: platform badge + spike -->
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
           <tr>
-            <td valign="middle">${platformBadge(trend.platform)}</td>
+            <td valign="middle">${platformBadge(trend.platform)}${noveltyTag(trend.isNew)}</td>
             <td valign="middle" align="right">
               <span style="background:${COLORS.gold};color:${COLORS.navy};font-size:13px;font-weight:800;padding:4px 10px;border-radius:6px;font-family:Arial,sans-serif;">+${trend.spike_pct}%</span>
             </td>

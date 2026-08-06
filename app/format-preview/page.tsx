@@ -16,6 +16,7 @@ interface Trend {
   top_brand: BrandKey
   brands: Record<BrandKey, { score: number; angle: string }>
   googleImages: string
+  isNew?: boolean
 }
 
 const BRANDS: { key: BrandKey; name: string; color: string }[] = [
@@ -165,8 +166,16 @@ export default function FormatPreviewPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 18 }}>
           {shown.map((t, i) => (
             <div key={i} style={{ background: '#fff', borderRadius: 12, borderLeft: '3px solid ' + active.color, boxShadow: '0 1px 5px rgba(0,0,0,.07)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: 17, fontWeight: 700, color: '#1A2B4A', margin: 0, lineHeight: 1.25 }}>{t.trend_name}</h3>
-              <p style={{ fontSize: 12.5, color: '#6B7280', lineHeight: 1.45, margin: 0 }}>{t.description}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ fontFamily: '"Playfair Display", serif', fontSize: 17, fontWeight: 700, color: '#1A2B4A', margin: 0, lineHeight: 1.25, flex: 1 }}>{t.trend_name}</h3>
+                {t.isNew === true && (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', color: '#15803D', background: '#DCFCE7', padding: '3px 8px', borderRadius: 5, flexShrink: 0 }}>NEW</span>
+                )}
+                {t.isNew === false && (
+                  <span style={{ fontSize: 10.5, fontWeight: 600, color: '#6B7280', background: '#F3F4F6', padding: '3px 8px', borderRadius: 5, flexShrink: 0 }}>Seen before</span>
+                )}
+              </div>
+              <p style={{ fontSize: 12.5, color: '#5B6675', lineHeight: 1.45, margin: 0 }}>{t.description}</p>
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: (FMT_COLOR[t.format] || '#888') + '1A', color: FMT_COLOR[t.format] || '#888' }}>{t.format}</span>
