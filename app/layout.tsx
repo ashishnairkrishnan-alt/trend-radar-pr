@@ -61,6 +61,7 @@ function Header() {
         <nav style={{ display: 'flex', gap: 4 }}>
           {[
             { label: 'Dashboard', href: '/' },
+            { label: 'Static & Carousel', href: '/format-preview' },
             { label: 'Mahjong', href: '/mahjong' },
             { label: 'History', href: '/history' },
             { label: 'Settings', href: '/settings' },

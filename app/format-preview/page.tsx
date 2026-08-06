@@ -79,9 +79,6 @@ export default function FormatPreviewPage() {
 
   return (
     <div style={{ maxWidth: 1180, margin: '0 auto', padding: '24px 20px 60px', fontFamily: '"DM Sans", system-ui, sans-serif' }}>
-      <div style={{ marginBottom: 8, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#9CA3AF' }}>
-        Isolated Preview · not live · read-only
-      </div>
       <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 26, fontWeight: 700, color: '#1A2B4A', margin: '0 0 6px' }}>
         Static &amp; Carousel Trends
       </h1>
