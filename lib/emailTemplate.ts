@@ -10,7 +10,7 @@ const COLORS = {
   cream: '#FAF6EE',
   bg: '#F4F4F6',
   text: '#1A2B4A',
-  muted: '#8A94A6',
+  muted: '#5B6675',
   white: '#FFFFFF',
   ig: '#E1306C',
   tt: '#010101',

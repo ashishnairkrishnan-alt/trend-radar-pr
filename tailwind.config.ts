@@ -14,7 +14,7 @@ const config: Config = {
         'pr-gold': '#C9A84C',
         'pr-cream': '#FAF6EE',
         'pr-text': '#1A2B4A',
-        'pr-muted': '#8A94A6',
+        'pr-muted': '#5B6675',
         'brand-chivas': '#F5A623',
         'brand-absolut': '#8A94A6',
         'brand-jameson': '#4CAF72',

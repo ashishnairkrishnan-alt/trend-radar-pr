@@ -221,6 +221,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Content */}
+      <h2 className="sr-only">This week&apos;s trends</h2>
       {loading ? (
         <DashboardSkeleton />
       ) : (

@@ -6,7 +6,7 @@ import type { FormatTrend, FormatBrandKey } from './formatTrends'
 
 const COLORS = {
   navy: '#0D1B3E', gold: '#C9A84C', cream: '#FAF6EE', bg: '#F4F4F6',
-  text: '#1A2B4A', muted: '#8A94A6', white: '#FFFFFF',
+  text: '#1A2B4A', muted: '#5B6675', white: '#FFFFFF',
   carousel: '#3B82F6', static: '#16A34A',
 }
 
