@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { dedupeByName } from './dedupe'
 
 // Shared generator for Static & Carousel trends. Reads a monthly roundup account's
 // SLIDE IMAGES with vision to get real trend names, then scores each trend's fit
@@ -219,5 +220,6 @@ export async function generateFormatTrends(): Promise<FormatTrend[]> {
     } catch { /* skip this roundup */ }
   }
 
-  return trends
+  // Collapse near-duplicate trends (reworded versions of the same idea)
+  return dedupeByName(trends, (t) => t.trend_name)
 }
