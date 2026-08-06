@@ -85,9 +85,9 @@ function SourceVideo({ url, platform }: { url: string; platform: string }) {
   const bgColor = isIG ? '#E1306C' : '#010101'
 
   return (
-    <div className="rounded-xl overflow-hidden border border-gray-100" style={{ background: '#F8F9FB' }}>
+    <div className="border-t border-b border-gray-100">
       {/* Header bar — always visible */}
-      <div className="flex items-center justify-between px-3 py-2.5">
+      <div className="flex items-center justify-between py-2.5">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: bgColor }}>
             {isIG ? (
@@ -224,7 +224,7 @@ export default function TrendCard({ trend }: TrendCardProps) {
         </p>
 
         {/* Row 6: Content angle */}
-        <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-pr-navy text-pr-gold text-[11px] font-semibold w-fit">
+        <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-pr-navy text-white text-[12px] font-semibold w-fit">
           {trend.content_angle}
         </span>
 
