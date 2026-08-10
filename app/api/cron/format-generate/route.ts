@@ -21,12 +21,21 @@ export async function GET() {
     const week_number = getWeekNumber(now)
     const year = now.getFullYear()
 
-    await supabase.from('format_trends').delete().eq('week_number', week_number).eq('year', year)
+    const { error: delError } = await supabase.from('format_trends').delete().eq('week_number', week_number).eq('year', year)
     const rows = trends.map((t) => trendToRow(t, week_number, year))
-    const { error } = await supabase.from('format_trends').insert(rows)
-    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    // .select() so we get the ACTUAL inserted rows back, not just the attempted count
+    const { data: inserted, error } = await supabase.from('format_trends').insert(rows).select('id')
 
-    return NextResponse.json({ success: true, stored: rows.length, week_number, year })
+    return NextResponse.json({
+      success: !error,
+      attempted: rows.length,
+      insertedCount: inserted?.length ?? 0,
+      insertError: error?.message ?? null,
+      deleteError: delError?.message ?? null,
+      week_number,
+      year,
+      sampleTrend: trends[0]?.trend_name ?? null,
+    })
   } catch (err) {
     return NextResponse.json({ success: false, error: String(err) }, { status: 500 })
   }
