@@ -9,7 +9,6 @@ import { dedupeByName } from './dedupe'
 
 const DISCOVERY_PROFILE = 'holler.academy' // scout only, never displayed
 const MAX_SLIDES_PER_POST = 12
-const MAX_ROUNDUPS = 2
 
 export const FORMAT_BRAND_KEYS = ['chivas', 'absolut', 'jameson', 'glenlivet'] as const
 export type FormatBrandKey = (typeof FORMAT_BRAND_KEYS)[number]
@@ -138,16 +137,23 @@ export async function generateFormatTrends(): Promise<FormatTrend[]> {
   if (!res.ok) throw new Error(`Apify ${res.status}: ${(await res.text()).slice(0, 180)}`)
   const items = (await res.json()) as Array<Record<string, unknown>>
 
-  const roundups: { format: 'Static' | 'Carousel'; images: string[] }[] = []
+  // Newest first, so we always take her LATEST roundup of each type
+  items.sort((a, b) => new Date(String(b.timestamp || 0)).getTime() - new Date(String(a.timestamp || 0)).getTime())
+
+  // Pick the most recent Static roundup and the most recent Carousel roundup
+  const picked: Partial<Record<'Static' | 'Carousel', string[]>> = {}
   for (const i of items) {
     const format = detectFormat((i.caption as string) || '')
-    if (!format) continue
+    if (!format || picked[format]) continue // already have the newest of this type
     const children = (i.childPosts as Array<Record<string, unknown>>) || []
     const images = children.map((c) => (c.displayUrl as string) || '').filter(Boolean).slice(0, MAX_SLIDES_PER_POST)
     if (images.length === 0 && i.displayUrl) images.push(i.displayUrl as string)
-    if (images.length > 0) roundups.push({ format, images })
-    if (roundups.length >= MAX_ROUNDUPS) break
+    if (images.length > 0) picked[format] = images
+    if (picked.Static && picked.Carousel) break
   }
+  const roundups: { format: 'Static' | 'Carousel'; images: string[] }[] = []
+  if (picked.Carousel) roundups.push({ format: 'Carousel', images: picked.Carousel })
+  if (picked.Static) roundups.push({ format: 'Static', images: picked.Static })
   if (roundups.length === 0) throw new Error('No "Single Post Trends" or "Carousel Trends" roundup found')
 
   // Step 2 — vision reads slides, then per-brand fit scoring
