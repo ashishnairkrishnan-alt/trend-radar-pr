@@ -41,7 +41,7 @@ async function scrapeLaterTikTokList(): Promise<DiscoveredTrend[]> {
 
   // Only include current month and previous month (e.g. June + July, never May)
   const now = new Date()
-  const firstDayOfPrevMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+  const firstDayOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
 
   // Split on <h3> boundaries — each section is one trend
   const sections = html.split(/<h3[^>]*>/i).slice(1)
@@ -61,7 +61,7 @@ async function scrapeLaterTikTokList(): Promise<DiscoveredTrend[]> {
 
     // Skip trends with no parseable date, or from before last month
     if (!dated_at || isNaN(dated_at.getTime())) continue
-    if (dated_at < firstDayOfPrevMonth) continue
+    if (dated_at < firstDayOfMonth) continue
 
     // Strip "Trend: " prefix and " — Month DD, YYYY" suffix
     const trend_name = decodeHtmlEntities(
