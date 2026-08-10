@@ -23,8 +23,15 @@ export async function GET() {
 
     const { error: delError } = await supabase.from('format_trends').delete().eq('week_number', week_number).eq('year', year)
     const rows = trends.map((t) => trendToRow(t, week_number, year))
-    // .select() so we get the ACTUAL inserted rows back, not just the attempted count
     const { data: inserted, error } = await supabase.from('format_trends').insert(rows).select('id')
+
+    // Read the table back with the SAME client, immediately, to see what persisted
+    const { data: verify } = await supabase.from('format_trends').select('week_number, year')
+    const groups: Record<string, number> = {}
+    for (const r of verify || []) {
+      const k = `${r.year}-w${r.week_number}`
+      groups[k] = (groups[k] || 0) + 1
+    }
 
     return NextResponse.json({
       success: !error,
@@ -34,7 +41,8 @@ export async function GET() {
       deleteError: delError?.message ?? null,
       week_number,
       year,
-      sampleTrend: trends[0]?.trend_name ?? null,
+      verifyTotal: verify?.length ?? 0,
+      verifyGroups: groups,
     })
   } catch (err) {
     return NextResponse.json({ success: false, error: String(err) }, { status: 500 })
