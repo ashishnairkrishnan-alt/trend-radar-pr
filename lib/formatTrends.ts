@@ -49,8 +49,9 @@ function normName(s: string): string {
 
 function detectFormat(caption: string): 'Static' | 'Carousel' | null {
   const c = (caption || '').toLowerCase()
-  if (/single\s*post\s*trends/.test(c)) return 'Static'
-  if (/carousel\s*trends/.test(c)) return 'Carousel'
+  // Match both word orders she has used: "Single Post Trends" AND "Trending Single Posts"
+  if (/trending\s+single\s+posts?/.test(c) || /single\s+posts?\s+trends?/.test(c)) return 'Static'
+  if (/trending\s+carousels?/.test(c) || /carousels?\s+trends?/.test(c)) return 'Carousel'
   return null
 }
 
