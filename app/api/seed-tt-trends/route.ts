@@ -194,11 +194,12 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // ?refresh=1 — safe weekly reset. We only reach here AFTER a successful scrape
-  // returned fresh trends, so clearing old seeds now can never leave the DB empty.
+  // ?refresh=1 — clear THIS WEEK's seeds only, then re-add. Scoping to the current
+  // week preserves earlier weeks so the NEW vs "Seen before" history survives.
   if (request.nextUrl.searchParams.get('refresh') === '1') {
     await supabase.from('scored_trends').delete()
       .eq('platform', 'tiktok').eq('spike_pct', 85)
+      .eq('week_number', week_number).eq('year', year)
   }
 
   // Step 2 — dedup against existing source_urls
