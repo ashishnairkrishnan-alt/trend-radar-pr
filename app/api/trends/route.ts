@@ -37,7 +37,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createServerClient()
-    const { data, error } = await supabase
+    let usedWeek = week
+    let usedYear = year
+
+    let { data, error } = await supabase
       .from('scored_trends')
       .select('*')
       .eq('week_number', week)
@@ -48,6 +51,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
+    // Fallback: if the requested week is empty, show the most recent batch that
+    // exists (guards against a week-number mismatch between seed and read).
+    if (!data || data.length === 0) {
+      const { data: latest } = await supabase
+        .from('scored_trends')
+        .select('*')
+        .order('year', { ascending: false })
+        .order('week_number', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(120)
+      if (latest && latest.length > 0) {
+        usedYear = latest[0].year as number
+        usedWeek = latest[0].week_number as number
+        data = latest.filter((r) => r.year === usedYear && r.week_number === usedWeek)
+      }
+    }
+
     // Collapse repeats (same idea from multiple sources / reworded)
     const trends = dedupeTrends((data as ScoredTrend[]) || [])
 
@@ -55,11 +75,11 @@ export async function GET(request: NextRequest) {
     const { data: prior } = await supabase
       .from('scored_trends')
       .select('trend_name, week_number, year')
-      .or(`year.lt.${year},and(year.eq.${year},week_number.lt.${week})`)
+      .or(`year.lt.${usedYear},and(year.eq.${usedYear},week_number.lt.${usedWeek})`)
     const priorSigs = new Set((prior || []).map((p) => trendSignature(p.trend_name as string)))
     for (const t of trends) t.isNew = !priorSigs.has(trendSignature(t.trend_name))
 
-    return NextResponse.json({ success: true, week, year, trends })
+    return NextResponse.json({ success: true, week: usedWeek, year: usedYear, trends })
   } catch (err) {
     return NextResponse.json({ success: false, error: String(err) }, { status: 500 })
   }
