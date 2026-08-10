@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = createServerClient()
+    const supabase = createServerClient(true)
     let usedWeek = week
     let usedYear = year
 

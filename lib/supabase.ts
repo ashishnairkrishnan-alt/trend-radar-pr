@@ -9,8 +9,10 @@ export function createBrowserClient() {
   return createClient(supabaseUrl, supabaseAnonKey)
 }
 
-// Server-side (service role key, bypasses RLS)
-export function createServerClient() {
+// Server-side (service role key, bypasses RLS). `noCache` forces every request to
+// bypass Next.js's fetch cache — needed for reads that must reflect the newest
+// writes (Next was serving a stale cached Supabase response otherwise).
+export function createServerClient(noCache = false) {
   if (!supabaseServiceKey) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set')
   }
@@ -19,6 +21,9 @@ export function createServerClient() {
       autoRefreshToken: false,
       persistSession: false,
     },
+    ...(noCache
+      ? { global: { fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, { ...init, cache: 'no-store' }) } }
+      : {}),
   })
 }
 

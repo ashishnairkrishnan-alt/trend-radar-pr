@@ -4,12 +4,14 @@ import { rowToTrend } from '@/lib/formatStore'
 import { trendSignature } from '@/lib/dedupe'
 
 export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+export const revalidate = 0
 
 // Fast read (service role, bypasses RLS). Returns the MOST RECENT stored batch —
 // no fragile "current week" matching, so a stored batch always shows up.
 export async function GET() {
   try {
-    const supabase = createServerClient()
+    const supabase = createServerClient(true)
     const { data, error } = await supabase
       .from('format_trends')
       .select('*')

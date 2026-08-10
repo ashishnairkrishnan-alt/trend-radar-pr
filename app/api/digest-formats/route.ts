@@ -16,7 +16,7 @@ async function send(request: NextRequest) {
   const isTest = request.nextUrl.searchParams.get('test') === '1'
   const recipients = isTest ? [TEST_RECIPIENT] : DIGEST_RECIPIENTS
 
-  const supabase = createServerClient()
+  const supabase = createServerClient(true)
   const { data, error } = await supabase
     .from('format_trends')
     .select('*')
