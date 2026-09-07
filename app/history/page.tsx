@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { DigestLog, ScoredTrend } from '@/types'
 import dynamic from 'next/dynamic'
+import { fetchWithRetry } from '@/lib/fetchRetry'
 
 const DigestPreview = dynamic(() => import('@/components/DigestPreview'), { ssr: false })
 
@@ -37,7 +38,7 @@ export default function HistoryPage() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await fetch('/api/digest-log')
+        const res = await fetchWithRetry('/api/digest-log')
         const json = await res.json()
         if (!res.ok || !json.success) console.error('[history] Failed to fetch logs:', json.error)
         else setLogs((json.logs as DigestLog[]) || [])
@@ -58,7 +59,7 @@ export default function HistoryPage() {
     const year = sentDate.getFullYear()
 
     try {
-      const res = await fetch(`/api/trends?week=${weekNumber}&year=${year}`)
+      const res = await fetchWithRetry(`/api/trends?week=${weekNumber}&year=${year}`)
       const json = await res.json()
       if (!res.ok || !json.success) console.error('[history] Failed to fetch preview trends:', json.error)
       else setPreviewTrends(((json.trends as ScoredTrend[]) || []).slice(0, 10))

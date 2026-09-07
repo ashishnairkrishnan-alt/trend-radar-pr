@@ -36,12 +36,17 @@ async function scrapeLaterTikTokList(): Promise<DiscoveredTrend[]> {
   if (!res.ok) throw new Error(`Later.com TikTok fetch failed: ${res.status}`)
   const html = await res.text()
 
-  const trends: DiscoveredTrend[] = []
+  const current: DiscoveredTrend[] = []
+  const previous: DiscoveredTrend[] = []
   const seenUrls = new Set<string>()
 
-  // Only include current month and previous month (e.g. June + July, never May)
+  // Prefer current-month trends. If the source hasn't posted many this month yet,
+  // backfill with last month's newest so the section is never near-empty. Anything
+  // older than last month is always dropped.
   const now = new Date()
   const firstDayOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const firstDayOfPrevMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+  const MIN_CURRENT = 6
 
   // Split on <h3> boundaries — each section is one trend
   const sections = html.split(/<h3[^>]*>/i).slice(1)
@@ -61,7 +66,7 @@ async function scrapeLaterTikTokList(): Promise<DiscoveredTrend[]> {
 
     // Skip trends with no parseable date, or from before last month
     if (!dated_at || isNaN(dated_at.getTime())) continue
-    if (dated_at < firstDayOfMonth) continue
+    if (dated_at < firstDayOfPrevMonth) continue
 
     // Strip "Trend: " prefix and " — Month DD, YYYY" suffix
     const trend_name = decodeHtmlEntities(
@@ -106,9 +111,16 @@ async function scrapeLaterTikTokList(): Promise<DiscoveredTrend[]> {
       : `Trending TikTok format — ${trend_name}`
     const emotional_hook = decodeHtmlEntities(rawHook).slice(0, 200).trim()
 
-    trends.push({ trend_name, emotional_hook, source_url, dated_at })
-    if (trends.length >= MAX_TRENDS) break
+    const trend = { trend_name, emotional_hook, source_url, dated_at }
+    if (dated_at >= firstDayOfMonth) current.push(trend)
+    else if (previous.length < MAX_TRENDS) previous.push(trend)
+    if (current.length >= MAX_TRENDS) break
   }
+
+  // Current month first; backfill with last month's newest only if this month is thin.
+  const trends = current.length >= MIN_CURRENT
+    ? current
+    : current.concat(previous).slice(0, MAX_TRENDS)
 
   return trends
 }

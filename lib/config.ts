@@ -7,6 +7,7 @@ export const DIGEST_RECIPIENTS: string[] = [
   'andres.ruiz@pernod-ricard.com',
   'Myriam.Zaouche-ext@pernod-ricard.com',
   'aditya.sachdev-ext@pernod-ricard.com',
+  'shernaz.sutaria-ext@pernod-ricard.com',
   // Add more recipients here
 ]
 

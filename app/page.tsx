@@ -6,6 +6,7 @@ import FilterPills from '@/components/FilterPills'
 import { DashboardSkeleton } from '@/components/Skeleton'
 import type { ScoredTrend, BrandKey } from '@/types'
 import { APP_CONFIG } from '@/lib/config'
+import { fetchWithRetry } from '@/lib/fetchRetry'
 
 function getWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
@@ -152,7 +153,7 @@ export default function DashboardPage() {
   const fetchTrends = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/trends?week=${weekNumber}&year=${year}`)
+      const res = await fetchWithRetry(`/api/trends?week=${weekNumber}&year=${year}`)
       const json = await res.json()
       if (!res.ok || !json.success) {
         console.error('[dashboard] Failed to fetch trends:', json.error)

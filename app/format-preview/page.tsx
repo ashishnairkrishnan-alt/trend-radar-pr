@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { fetchWithRetry } from '@/lib/fetchRetry'
 
 // Isolated preview (format-classify branch). Trend names are read from roundup
 // SLIDE IMAGES with vision, then presented as our own briefs with independent
@@ -43,7 +44,7 @@ export default function FormatPreviewPage() {
   const run = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const res = await fetch('/api/format-trends')
+      const res = await fetchWithRetry('/api/format-trends')
       const json = await res.json()
       if (!res.ok || !json.success) setError(json.error || 'Failed')
       else { setTrends(json.trends || []); setCounts(json.counts || {}) }

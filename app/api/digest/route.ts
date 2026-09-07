@@ -21,15 +21,17 @@ export async function POST(request: NextRequest) {
   const recipients = isTest ? [TEST_RECIPIENT] : DIGEST_RECIPIENTS
   console.log(`[digest] Starting digest generation${isTest ? ' (TEST mode)' : ''}`)
 
-  const supabase = createServerClient()
+  const supabase = createServerClient(true)
   const now = new Date()
   const weekNumber = getWeekNumber(now)
   const year = now.getFullYear()
+  let usedWeek = weekNumber
+  let usedYear = year
 
   console.log(`[digest] Fetching top ${APP_CONFIG.topTrendsPerDigest} trends for week ${weekNumber}/${year}`)
 
   // Fetch top scored trends for current week, ordered by highest top-brand score
-  const { data: trends, error } = await supabase
+  let { data: trends, error } = await supabase
     .from('scored_trends')
     .select('*')
     .eq('week_number', weekNumber)
@@ -42,9 +44,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch trends' }, { status: 500 })
   }
 
+  // Fallback: if the current week is empty (e.g. the source posted nothing new this
+  // week), send the most recent batch that exists instead of erroring out.
   if (!trends || trends.length === 0) {
-    console.warn('[digest] No scored trends found for current week')
-    return NextResponse.json({ error: 'No trends found for current week' }, { status: 404 })
+    console.warn('[digest] Current week empty — falling back to most recent batch')
+    const { data: latest } = await supabase
+      .from('scored_trends')
+      .select('*')
+      .order('year', { ascending: false })
+      .order('week_number', { ascending: false })
+      .order('chivas_score', { ascending: false })
+      .limit(120)
+    if (latest && latest.length > 0) {
+      usedYear = latest[0].year as number
+      usedWeek = latest[0].week_number as number
+      trends = latest.filter((r) => r.year === usedYear && r.week_number === usedWeek)
+    }
+  }
+
+  if (!trends || trends.length === 0) {
+    console.warn('[digest] No scored trends found at all')
+    return NextResponse.json({ error: 'No trends found' }, { status: 404 })
   }
 
   // Sort by the score of the top_brand for that trend, descending
@@ -63,7 +83,7 @@ export async function POST(request: NextRequest) {
   const { data: prior } = await supabase
     .from('scored_trends')
     .select('trend_name')
-    .or(`year.lt.${year},and(year.eq.${year},week_number.lt.${weekNumber})`)
+    .or(`year.lt.${usedYear},and(year.eq.${usedYear},week_number.lt.${usedWeek})`)
   const priorSigs = new Set((prior || []).map((p) => trendSignature(p.trend_name as string)))
   for (const t of top) t.isNew = !priorSigs.has(trendSignature(t.trend_name))
   console.log(`[digest] Selected ${top.length} trends for digest`)
@@ -85,7 +105,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Send the email
-  const result = await sendDigestEmail(top, weekNumber, year, isTest ? recipients : undefined)
+  const result = await sendDigestEmail(top, usedWeek, usedYear, isTest ? recipients : undefined)
 
   // Update log entry status
   if (logEntry) {
@@ -108,8 +128,8 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     success: true,
     test: isTest,
-    week: weekNumber,
-    year,
+    week: usedWeek,
+    year: usedYear,
     trendCount: top.length,
     recipientCount: recipients.length,
   })
