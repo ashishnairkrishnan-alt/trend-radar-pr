@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { sendToRecipients } from '@/lib/email'
 import { buildFormatDigestHtml } from '@/lib/formatEmailTemplate'
-import { rowToTrend } from '@/lib/formatStore'
+import { rowToTrend, trendToRow, getWeekNumber } from '@/lib/formatStore'
+import { generateFormatTrends } from '@/lib/formatTrends'
 import { trendSignature } from '@/lib/dedupe'
 import { DIGEST_RECIPIENTS, TEST_RECIPIENT, APP_CONFIG } from '@/lib/config'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300
 
 // Email B — Static & Carousel digest. Emails the MOST RECENT stored batch (the
 // Monday cron regenerates it that morning). ?test=1 sends only to the test
@@ -17,16 +18,44 @@ async function send(request: NextRequest) {
   const recipients = isTest ? [TEST_RECIPIENT] : DIGEST_RECIPIENTS
 
   const supabase = createServerClient(true)
-  const { data, error } = await supabase
-    .from('format_trends')
-    .select('*')
-    .order('year', { ascending: false })
-    .order('week_number', { ascending: false })
-    .order('created_at', { ascending: true })
-    .limit(300)
+  const now = new Date()
+  const curWeek = getWeekNumber(now)
+  const curYear = now.getFullYear()
 
+  const readLatest = async () => {
+    const { data, error } = await supabase
+      .from('format_trends')
+      .select('*')
+      .order('year', { ascending: false })
+      .order('week_number', { ascending: false })
+      .order('created_at', { ascending: true })
+      .limit(300)
+    return { rows: data || [], error }
+  }
+
+  let { rows: all, error } = await readLatest()
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
-  const all = data || []
+
+  // Freshness guard: if the newest stored batch isn't the current week, the
+  // Monday format-generate likely failed or didn't run. Regenerate now so we
+  // never email a stale batch. If regeneration fails, fall through and send the
+  // most recent batch we have (better stale than no email).
+  const latest = all[0]
+  const isStale = !latest || latest.week_number !== curWeek || latest.year !== curYear
+  if (isStale) {
+    try {
+      const fresh = await generateFormatTrends()
+      if (fresh.length > 0) {
+        await supabase.from('format_trends').delete().eq('week_number', curWeek).eq('year', curYear)
+        await supabase.from('format_trends').insert(fresh.map((t) => trendToRow(t, curWeek, curYear)))
+        const reread = await readLatest()
+        if (!reread.error && reread.rows.length > 0) all = reread.rows
+      }
+    } catch (e) {
+      console.error('[digest-formats] regenerate-on-stale failed:', e)
+    }
+  }
+
   if (all.length === 0) {
     return NextResponse.json({ success: false, error: 'No static/carousel trends stored yet - run format-generate first.' }, { status: 404 })
   }
