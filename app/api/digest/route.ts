@@ -67,13 +67,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No trends found' }, { status: 404 })
   }
 
-  // Sort by the score of the top_brand for that trend, descending
+  // Featured/manual trends (spike_pct >= 100) pin to the top, then everything
+  // else by the score of its top_brand, descending.
   const sorted = (trends as ScoredTrend[]).sort((a, b) => {
     const getTopScore = (t: ScoredTrend) => {
       const scores = [t.chivas_score, t.absolut_score, t.jameson_score, t.glenlivet_score]
       return Math.max(...scores)
     }
-    return getTopScore(b) - getTopScore(a)
+    const featured = (t: ScoredTrend) => ((t.spike_pct || 0) >= 100 ? 1 : 0)
+    return featured(b) - featured(a) || getTopScore(b) - getTopScore(a)
   })
 
   // Collapse repeats before picking the top N, so the email doesn't show the same idea twice

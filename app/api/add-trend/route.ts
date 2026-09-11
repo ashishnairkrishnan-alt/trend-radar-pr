@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       trend_type,
       emotional_hook: hook,
       engagement_volume: 100000,
-      spike_pct: 85,
+      spike_pct: 100, // sentinel: manually featured, pins to top of the digest
       source_url,
       raw_data: { manual: true },
     }
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
         platform,
         trend_type,
         emotional_hook: hook,
-        spike_pct: 85,
+        spike_pct: 100, // sentinel: manually featured, pins to top of the digest
         source_url,
         week_number,
         year,
